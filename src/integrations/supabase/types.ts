@@ -901,6 +901,7 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           created_at: string
+          date_of_birth: string | null
           display_name: string
           dnd_enabled: boolean | null
           dnd_end_time: string | null
@@ -920,6 +921,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          date_of_birth?: string | null
           display_name: string
           dnd_enabled?: boolean | null
           dnd_end_time?: string | null
@@ -939,6 +941,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          date_of_birth?: string | null
           display_name?: string
           dnd_enabled?: boolean | null
           dnd_end_time?: string | null
