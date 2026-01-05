@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Camera, Upload, User, Loader2, MessageSquare, Users, Calendar, Sparkles, CheckCircle2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,7 +30,8 @@ export const ProfileEditor = () => {
     status: "",
     avatar_url: "",
     username: "",
-    bio: ""
+    bio: "",
+    gender: ""
   });
   const { toast } = useToast();
 
@@ -45,7 +47,7 @@ export const ProfileEditor = () => {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('display_name, status, avatar_url, username, bio')
+        .select('display_name, status, avatar_url, username, bio, gender')
         .eq('user_id', user.id)
         .single();
 
@@ -56,7 +58,8 @@ export const ProfileEditor = () => {
           status: data.status || "",
           avatar_url: data.avatar_url || "",
           username: data.username || "",
-          bio: data.bio || ""
+          bio: data.bio || "",
+          gender: data.gender || ""
         });
       }
     } catch (error) {
@@ -167,7 +170,8 @@ export const ProfileEditor = () => {
           display_name: profile.display_name.trim(),
           status: profile.status.trim(),
           avatar_url: profile.avatar_url,
-          bio: profile.bio.trim()
+          bio: profile.bio.trim(),
+          gender: profile.gender || null
         })
         .eq('user_id', user.id);
 
@@ -202,7 +206,8 @@ export const ProfileEditor = () => {
       { name: "Username", filled: !!profile.username.trim() },
       { name: "Profile Picture", filled: !!profile.avatar_url },
       { name: "Status", filled: !!profile.status.trim() },
-      { name: "Bio", filled: !!profile.bio.trim() }
+      { name: "Bio", filled: !!profile.bio.trim() },
+      { name: "Gender", filled: !!profile.gender }
     ];
     
     const filledCount = fields.filter(f => f.filled).length;
@@ -362,6 +367,24 @@ export const ProfileEditor = () => {
             placeholder="Enter your display name"
             maxLength={50}
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="gender">Gender</Label>
+          <Select
+            value={profile.gender}
+            onValueChange={(value) => setProfile(prev => ({ ...prev, gender: value }))}
+          >
+            <SelectTrigger id="gender">
+              <SelectValue placeholder="Select your gender" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="male">Male</SelectItem>
+              <SelectItem value="female">Female</SelectItem>
+              <SelectItem value="non-binary">Non-binary</SelectItem>
+              <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">
