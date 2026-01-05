@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Camera, Upload, User, Loader2, MessageSquare, Users, Calendar, Sparkles } from "lucide-react";
+import { Camera, Upload, User, Loader2, MessageSquare, Users, Calendar, Sparkles, CheckCircle2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Camera as CapacitorCamera } from '@capacitor/camera';
@@ -27,7 +28,8 @@ export const ProfileEditor = () => {
     display_name: "",
     status: "",
     avatar_url: "",
-    username: ""
+    username: "",
+    bio: ""
   });
   const { toast } = useToast();
 
@@ -43,7 +45,7 @@ export const ProfileEditor = () => {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('display_name, status, avatar_url, username')
+        .select('display_name, status, avatar_url, username, bio')
         .eq('user_id', user.id)
         .single();
 
@@ -53,7 +55,8 @@ export const ProfileEditor = () => {
           display_name: data.display_name || "",
           status: data.status || "",
           avatar_url: data.avatar_url || "",
-          username: data.username || ""
+          username: data.username || "",
+          bio: data.bio || ""
         });
       }
     } catch (error) {
@@ -192,6 +195,23 @@ export const ProfileEditor = () => {
     return "Good evening";
   };
 
+  const getProfileCompletion = () => {
+    const fields = [
+      { name: "Display Name", filled: !!profile.display_name.trim() },
+      { name: "Username", filled: !!profile.username.trim() },
+      { name: "Profile Picture", filled: !!profile.avatar_url },
+      { name: "Status", filled: !!profile.status.trim() },
+      { name: "Bio", filled: !!profile.bio.trim() }
+    ];
+    
+    const filledCount = fields.filter(f => f.filled).length;
+    const percentage = Math.round((filledCount / fields.length) * 100);
+    
+    return { fields, filledCount, total: fields.length, percentage };
+  };
+
+  const completion = getProfileCompletion();
+
   return (
     <div className="w-full max-w-2xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
       {/* Welcome Section */}
@@ -232,6 +252,49 @@ export const ProfileEditor = () => {
             <p className="text-xs text-muted-foreground">Meetings</p>
           </div>
         </div>
+      </div>
+
+      {/* Profile Completion Indicator */}
+      <div className="bg-card rounded-xl p-4 sm:p-6 border border-border space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className={`w-5 h-5 ${completion.percentage === 100 ? 'text-green-500' : 'text-primary'}`} />
+            <h3 className="font-semibold">Profile Completion</h3>
+          </div>
+          <span className={`text-lg font-bold ${completion.percentage === 100 ? 'text-green-500' : 'text-primary'}`}>
+            {completion.percentage}%
+          </span>
+        </div>
+        
+        <Progress value={completion.percentage} className="h-2" />
+        
+        <div className="flex flex-wrap gap-2">
+          {completion.fields.map((field) => (
+            <div
+              key={field.name}
+              className={`px-2 py-1 rounded-full text-xs flex items-center gap-1 ${
+                field.filled 
+                  ? 'bg-green-500/10 text-green-600 dark:text-green-400' 
+                  : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {field.filled && <CheckCircle2 className="w-3 h-3" />}
+              {field.name}
+            </div>
+          ))}
+        </div>
+        
+        {completion.percentage < 100 && (
+          <p className="text-xs text-muted-foreground">
+            Complete your profile to help others recognize you!
+          </p>
+        )}
+        
+        {completion.percentage === 100 && (
+          <p className="text-xs text-green-600 dark:text-green-400">
+            🎉 Great job! Your profile is complete!
+          </p>
+        )}
       </div>
 
       <div className="text-center space-y-2 sm:space-y-4">
