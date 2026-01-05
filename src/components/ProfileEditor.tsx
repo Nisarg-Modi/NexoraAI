@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Camera, Upload, User, Loader2, MessageSquare, Users, Calendar, Sparkles, CheckCircle2 } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Camera, Upload, User, Loader2, MessageSquare, Users, Calendar as CalendarIcon, Sparkles, CheckCircle2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +17,7 @@ import { CameraResultType, CameraSource } from '@capacitor/camera';
 import { NotificationSettings } from "./NotificationSettings";
 import { DoNotDisturbSettings } from "./DoNotDisturbSettings";
 import { LanguageSettings } from "./LanguageSettings";
+import { cn } from "@/lib/utils";
 
 interface QuickStats {
   contactsCount: number;
@@ -31,7 +35,8 @@ export const ProfileEditor = () => {
     avatar_url: "",
     username: "",
     bio: "",
-    gender: ""
+    gender: "",
+    date_of_birth: null as Date | null
   });
   const { toast } = useToast();
 
@@ -47,7 +52,7 @@ export const ProfileEditor = () => {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('display_name, status, avatar_url, username, bio, gender')
+        .select('display_name, status, avatar_url, username, bio, gender, date_of_birth')
         .eq('user_id', user.id)
         .single();
 
@@ -59,7 +64,8 @@ export const ProfileEditor = () => {
           avatar_url: data.avatar_url || "",
           username: data.username || "",
           bio: data.bio || "",
-          gender: data.gender || ""
+          gender: data.gender || "",
+          date_of_birth: data.date_of_birth ? new Date(data.date_of_birth) : null
         });
       }
     } catch (error) {
@@ -171,7 +177,8 @@ export const ProfileEditor = () => {
           status: profile.status.trim(),
           avatar_url: profile.avatar_url,
           bio: profile.bio.trim(),
-          gender: profile.gender || null
+          gender: profile.gender || null,
+          date_of_birth: profile.date_of_birth ? format(profile.date_of_birth, 'yyyy-MM-dd') : null
         })
         .eq('user_id', user.id);
 
@@ -207,7 +214,8 @@ export const ProfileEditor = () => {
       { name: "Profile Picture", filled: !!profile.avatar_url },
       { name: "Status", filled: !!profile.status.trim() },
       { name: "Bio", filled: !!profile.bio.trim() },
-      { name: "Gender", filled: !!profile.gender }
+      { name: "Gender", filled: !!profile.gender },
+      { name: "Birthday", filled: !!profile.date_of_birth }
     ];
     
     const filledCount = fields.filter(f => f.filled).length;
@@ -385,6 +393,37 @@ export const ProfileEditor = () => {
               <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Date of Birth</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !profile.date_of_birth && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {profile.date_of_birth ? format(profile.date_of_birth, "PPP") : <span>Pick your date of birth</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={profile.date_of_birth || undefined}
+                onSelect={(date) => setProfile(prev => ({ ...prev, date_of_birth: date || null }))}
+                disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+                captionLayout="dropdown-buttons"
+                fromYear={1900}
+                toYear={new Date().getFullYear()}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="space-y-2">
