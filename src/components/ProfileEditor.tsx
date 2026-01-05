@@ -166,7 +166,8 @@ export const ProfileEditor = () => {
         .update({
           display_name: profile.display_name.trim(),
           status: profile.status.trim(),
-          avatar_url: profile.avatar_url
+          avatar_url: profile.avatar_url,
+          bio: profile.bio.trim()
         })
         .eq('user_id', user.id);
 
@@ -364,6 +365,21 @@ export const ProfileEditor = () => {
         </div>
 
         <div className="space-y-2">
+          <Label htmlFor="bio">Bio</Label>
+          <Textarea
+            id="bio"
+            value={profile.bio}
+            onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
+            placeholder="Tell others about yourself..."
+            maxLength={300}
+            rows={4}
+          />
+          <p className="text-xs text-muted-foreground">
+            {profile.bio.length}/300 characters
+          </p>
+        </div>
+
+        <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
           <Textarea
             id="status"
@@ -371,7 +387,7 @@ export const ProfileEditor = () => {
             onChange={(e) => setProfile(prev => ({ ...prev, status: e.target.value }))}
             placeholder="What's on your mind?"
             maxLength={150}
-            rows={3}
+            rows={2}
           />
           <p className="text-xs text-muted-foreground">
             {profile.status.length}/150 characters
