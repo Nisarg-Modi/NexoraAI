@@ -908,6 +908,7 @@ export type Database = {
           dnd_start_time: string | null
           gender: string | null
           id: string
+          location: string | null
           notification_sound_enabled: boolean | null
           preferred_language: string | null
           send_language: string | null
@@ -928,6 +929,7 @@ export type Database = {
           dnd_start_time?: string | null
           gender?: string | null
           id?: string
+          location?: string | null
           notification_sound_enabled?: boolean | null
           preferred_language?: string | null
           send_language?: string | null
@@ -948,6 +950,7 @@ export type Database = {
           dnd_start_time?: string | null
           gender?: string | null
           id?: string
+          location?: string | null
           notification_sound_enabled?: boolean | null
           preferred_language?: string | null
           send_language?: string | null
