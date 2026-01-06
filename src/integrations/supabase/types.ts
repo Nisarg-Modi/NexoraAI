@@ -908,14 +908,18 @@ export type Database = {
           dnd_start_time: string | null
           gender: string | null
           id: string
+          instagram_url: string | null
+          linkedin_url: string | null
           location: string | null
           notification_sound_enabled: boolean | null
           preferred_language: string | null
           send_language: string | null
           status: string | null
+          twitter_url: string | null
           updated_at: string
           user_id: string
           username: string
+          website_url: string | null
         }
         Insert: {
           auto_translate?: boolean | null
@@ -929,14 +933,18 @@ export type Database = {
           dnd_start_time?: string | null
           gender?: string | null
           id?: string
+          instagram_url?: string | null
+          linkedin_url?: string | null
           location?: string | null
           notification_sound_enabled?: boolean | null
           preferred_language?: string | null
           send_language?: string | null
           status?: string | null
+          twitter_url?: string | null
           updated_at?: string
           user_id: string
           username: string
+          website_url?: string | null
         }
         Update: {
           auto_translate?: boolean | null
@@ -950,14 +958,18 @@ export type Database = {
           dnd_start_time?: string | null
           gender?: string | null
           id?: string
+          instagram_url?: string | null
+          linkedin_url?: string | null
           location?: string | null
           notification_sound_enabled?: boolean | null
           preferred_language?: string | null
           send_language?: string | null
           status?: string | null
+          twitter_url?: string | null
           updated_at?: string
           user_id?: string
           username?: string
+          website_url?: string | null
         }
         Relationships: []
       }
