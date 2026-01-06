@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Camera, Upload, User, Loader2, MessageSquare, Users, Calendar as CalendarIcon, Sparkles, CheckCircle2, MapPin } from "lucide-react";
+import { Camera, Upload, User, Loader2, MessageSquare, Users, Calendar as CalendarIcon, Sparkles, CheckCircle2, MapPin, Twitter, Linkedin, Instagram, Globe } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -37,7 +37,11 @@ export const ProfileEditor = () => {
     bio: "",
     gender: "",
     date_of_birth: null as Date | null,
-    location: ""
+    location: "",
+    twitter_url: "",
+    linkedin_url: "",
+    instagram_url: "",
+    website_url: ""
   });
   const { toast } = useToast();
 
@@ -53,7 +57,7 @@ export const ProfileEditor = () => {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('display_name, status, avatar_url, username, bio, gender, date_of_birth, location')
+        .select('display_name, status, avatar_url, username, bio, gender, date_of_birth, location, twitter_url, linkedin_url, instagram_url, website_url')
         .eq('user_id', user.id)
         .single();
 
@@ -67,7 +71,11 @@ export const ProfileEditor = () => {
           bio: data.bio || "",
           gender: data.gender || "",
           date_of_birth: data.date_of_birth ? new Date(data.date_of_birth) : null,
-          location: data.location || ""
+          location: data.location || "",
+          twitter_url: data.twitter_url || "",
+          linkedin_url: data.linkedin_url || "",
+          instagram_url: data.instagram_url || "",
+          website_url: data.website_url || ""
         });
       }
     } catch (error) {
@@ -181,7 +189,11 @@ export const ProfileEditor = () => {
           bio: profile.bio.trim(),
           gender: profile.gender || null,
           date_of_birth: profile.date_of_birth ? format(profile.date_of_birth, 'yyyy-MM-dd') : null,
-          location: profile.location.trim() || null
+          location: profile.location.trim() || null,
+          twitter_url: profile.twitter_url.trim() || null,
+          linkedin_url: profile.linkedin_url.trim() || null,
+          instagram_url: profile.instagram_url.trim() || null,
+          website_url: profile.website_url.trim() || null
         })
         .eq('user_id', user.id);
 
@@ -473,6 +485,70 @@ export const ProfileEditor = () => {
           <p className="text-xs text-muted-foreground">
             {profile.status.length}/150 characters
           </p>
+        </div>
+
+        {/* Social Links Section */}
+        <div className="space-y-4 pt-4 border-t border-border">
+          <div className="flex items-center gap-2">
+            <Globe className="w-5 h-5 text-primary" />
+            <h3 className="font-semibold">Social Links</h3>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="twitter_url">Twitter / X</Label>
+            <div className="relative">
+              <Twitter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="twitter_url"
+                value={profile.twitter_url}
+                onChange={(e) => setProfile(prev => ({ ...prev, twitter_url: e.target.value }))}
+                placeholder="https://twitter.com/username"
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="linkedin_url">LinkedIn</Label>
+            <div className="relative">
+              <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="linkedin_url"
+                value={profile.linkedin_url}
+                onChange={(e) => setProfile(prev => ({ ...prev, linkedin_url: e.target.value }))}
+                placeholder="https://linkedin.com/in/username"
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="instagram_url">Instagram</Label>
+            <div className="relative">
+              <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="instagram_url"
+                value={profile.instagram_url}
+                onChange={(e) => setProfile(prev => ({ ...prev, instagram_url: e.target.value }))}
+                placeholder="https://instagram.com/username"
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="website_url">Website</Label>
+            <div className="relative">
+              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="website_url"
+                value={profile.website_url}
+                onChange={(e) => setProfile(prev => ({ ...prev, website_url: e.target.value }))}
+                placeholder="https://yourwebsite.com"
+                className="pl-10"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
