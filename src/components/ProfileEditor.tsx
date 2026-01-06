@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Camera, Upload, User, Loader2, MessageSquare, Users, Calendar as CalendarIcon, Sparkles, CheckCircle2 } from "lucide-react";
+import { Camera, Upload, User, Loader2, MessageSquare, Users, Calendar as CalendarIcon, Sparkles, CheckCircle2, MapPin } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -36,7 +36,8 @@ export const ProfileEditor = () => {
     username: "",
     bio: "",
     gender: "",
-    date_of_birth: null as Date | null
+    date_of_birth: null as Date | null,
+    location: ""
   });
   const { toast } = useToast();
 
@@ -52,7 +53,7 @@ export const ProfileEditor = () => {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('display_name, status, avatar_url, username, bio, gender, date_of_birth')
+        .select('display_name, status, avatar_url, username, bio, gender, date_of_birth, location')
         .eq('user_id', user.id)
         .single();
 
@@ -65,7 +66,8 @@ export const ProfileEditor = () => {
           username: data.username || "",
           bio: data.bio || "",
           gender: data.gender || "",
-          date_of_birth: data.date_of_birth ? new Date(data.date_of_birth) : null
+          date_of_birth: data.date_of_birth ? new Date(data.date_of_birth) : null,
+          location: data.location || ""
         });
       }
     } catch (error) {
@@ -178,7 +180,8 @@ export const ProfileEditor = () => {
           avatar_url: profile.avatar_url,
           bio: profile.bio.trim(),
           gender: profile.gender || null,
-          date_of_birth: profile.date_of_birth ? format(profile.date_of_birth, 'yyyy-MM-dd') : null
+          date_of_birth: profile.date_of_birth ? format(profile.date_of_birth, 'yyyy-MM-dd') : null,
+          location: profile.location.trim() || null
         })
         .eq('user_id', user.id);
 
@@ -215,7 +218,8 @@ export const ProfileEditor = () => {
       { name: "Status", filled: !!profile.status.trim() },
       { name: "Bio", filled: !!profile.bio.trim() },
       { name: "Gender", filled: !!profile.gender },
-      { name: "Birthday", filled: !!profile.date_of_birth }
+      { name: "Birthday", filled: !!profile.date_of_birth },
+      { name: "Location", filled: !!profile.location.trim() }
     ];
     
     const filledCount = fields.filter(f => f.filled).length;
@@ -424,6 +428,21 @@ export const ProfileEditor = () => {
               />
             </PopoverContent>
           </Popover>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="location">Location</Label>
+          <div className="relative">
+            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              id="location"
+              value={profile.location}
+              onChange={(e) => setProfile(prev => ({ ...prev, location: e.target.value }))}
+              placeholder="City, Country"
+              maxLength={100}
+              className="pl-10"
+            />
+          </div>
         </div>
 
         <div className="space-y-2">
