@@ -426,17 +426,13 @@ export const ProfileEditor = () => {
                 {profile.date_of_birth ? format(profile.date_of_birth, "PPP") : <span>Pick your date of birth</span>}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
+            <PopoverContent className="w-auto p-0 z-50" align="start">
               <Calendar
                 mode="single"
                 selected={profile.date_of_birth || undefined}
                 onSelect={(date) => setProfile(prev => ({ ...prev, date_of_birth: date || null }))}
                 disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                 initialFocus
-                className={cn("p-3 pointer-events-auto")}
-                captionLayout="dropdown-buttons"
-                fromYear={1900}
-                toYear={new Date().getFullYear()}
               />
             </PopoverContent>
           </Popover>
