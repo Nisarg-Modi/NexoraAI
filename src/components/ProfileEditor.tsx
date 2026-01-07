@@ -25,9 +25,42 @@ interface QuickStats {
   meetingsCount: number;
 }
 
+interface UrlErrors {
+  twitter_url?: string;
+  linkedin_url?: string;
+  instagram_url?: string;
+  website_url?: string;
+}
+
+const validateUrl = (url: string, platform?: string): string | undefined => {
+  if (!url.trim()) return undefined;
+  
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return 'URL must start with http:// or https://';
+    }
+    
+    if (platform === 'twitter' && !parsed.hostname.match(/^(www\.)?(twitter\.com|x\.com)$/)) {
+      return 'Please enter a valid Twitter/X URL';
+    }
+    if (platform === 'linkedin' && !parsed.hostname.match(/^(www\.)?linkedin\.com$/)) {
+      return 'Please enter a valid LinkedIn URL';
+    }
+    if (platform === 'instagram' && !parsed.hostname.match(/^(www\.)?instagram\.com$/)) {
+      return 'Please enter a valid Instagram URL';
+    }
+    
+    return undefined;
+  } catch {
+    return 'Please enter a valid URL';
+  }
+};
+
 export const ProfileEditor = () => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [urlErrors, setUrlErrors] = useState<UrlErrors>({});
   const [stats, setStats] = useState<QuickStats>({ contactsCount: 0, conversationsCount: 0, meetingsCount: 0 });
   const [profile, setProfile] = useState({
     display_name: "",
@@ -174,7 +207,41 @@ export const ProfileEditor = () => {
     }
   };
 
+  const validateAllUrls = (): boolean => {
+    const errors: UrlErrors = {
+      twitter_url: validateUrl(profile.twitter_url, 'twitter'),
+      linkedin_url: validateUrl(profile.linkedin_url, 'linkedin'),
+      instagram_url: validateUrl(profile.instagram_url, 'instagram'),
+      website_url: validateUrl(profile.website_url)
+    };
+    
+    setUrlErrors(errors);
+    return !Object.values(errors).some(error => error !== undefined);
+  };
+
+  const handleUrlChange = (field: keyof UrlErrors, value: string) => {
+    setProfile(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (urlErrors[field]) {
+      setUrlErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const handleUrlBlur = (field: keyof UrlErrors, platform?: string) => {
+    const error = validateUrl(profile[field], platform);
+    setUrlErrors(prev => ({ ...prev, [field]: error }));
+  };
+
   const handleSave = async () => {
+    if (!validateAllUrls()) {
+      toast({
+        title: "Validation Error",
+        description: "Please fix the invalid URLs before saving.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -497,11 +564,15 @@ export const ProfileEditor = () => {
               <Input
                 id="twitter_url"
                 value={profile.twitter_url}
-                onChange={(e) => setProfile(prev => ({ ...prev, twitter_url: e.target.value }))}
+                onChange={(e) => handleUrlChange('twitter_url', e.target.value)}
+                onBlur={() => handleUrlBlur('twitter_url', 'twitter')}
                 placeholder="https://twitter.com/username"
-                className="pl-10"
+                className={cn("pl-10", urlErrors.twitter_url && "border-destructive focus-visible:ring-destructive")}
               />
             </div>
+            {urlErrors.twitter_url && (
+              <p className="text-xs text-destructive">{urlErrors.twitter_url}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -511,11 +582,15 @@ export const ProfileEditor = () => {
               <Input
                 id="linkedin_url"
                 value={profile.linkedin_url}
-                onChange={(e) => setProfile(prev => ({ ...prev, linkedin_url: e.target.value }))}
+                onChange={(e) => handleUrlChange('linkedin_url', e.target.value)}
+                onBlur={() => handleUrlBlur('linkedin_url', 'linkedin')}
                 placeholder="https://linkedin.com/in/username"
-                className="pl-10"
+                className={cn("pl-10", urlErrors.linkedin_url && "border-destructive focus-visible:ring-destructive")}
               />
             </div>
+            {urlErrors.linkedin_url && (
+              <p className="text-xs text-destructive">{urlErrors.linkedin_url}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -525,11 +600,15 @@ export const ProfileEditor = () => {
               <Input
                 id="instagram_url"
                 value={profile.instagram_url}
-                onChange={(e) => setProfile(prev => ({ ...prev, instagram_url: e.target.value }))}
+                onChange={(e) => handleUrlChange('instagram_url', e.target.value)}
+                onBlur={() => handleUrlBlur('instagram_url', 'instagram')}
                 placeholder="https://instagram.com/username"
-                className="pl-10"
+                className={cn("pl-10", urlErrors.instagram_url && "border-destructive focus-visible:ring-destructive")}
               />
             </div>
+            {urlErrors.instagram_url && (
+              <p className="text-xs text-destructive">{urlErrors.instagram_url}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -539,11 +618,15 @@ export const ProfileEditor = () => {
               <Input
                 id="website_url"
                 value={profile.website_url}
-                onChange={(e) => setProfile(prev => ({ ...prev, website_url: e.target.value }))}
+                onChange={(e) => handleUrlChange('website_url', e.target.value)}
+                onBlur={() => handleUrlBlur('website_url')}
                 placeholder="https://yourwebsite.com"
-                className="pl-10"
+                className={cn("pl-10", urlErrors.website_url && "border-destructive focus-visible:ring-destructive")}
               />
             </div>
+            {urlErrors.website_url && (
+              <p className="text-xs text-destructive">{urlErrors.website_url}</p>
+            )}
           </div>
         </div>
       </div>
