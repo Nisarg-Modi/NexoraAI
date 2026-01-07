@@ -276,7 +276,7 @@ export const ProfileEditor = () => {
           </div>
           <div className="bg-card/50 rounded-lg p-3 text-center border border-border/50">
             <div className="flex justify-center mb-1">
-              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+              <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
             </div>
             <p className="text-lg sm:text-xl font-bold">{stats.meetingsCount}</p>
             <p className="text-xs text-muted-foreground">Meetings</p>
