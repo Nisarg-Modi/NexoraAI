@@ -16,11 +16,13 @@ import { IncomingCallDialog } from "./IncomingCallDialog";
 import { GroupBotSettings } from "./GroupBotSettings";
 import { GroupBotInteraction } from "./GroupBotInteraction";
 import { ContactLanguagePreferences } from "./ContactLanguagePreferences";
+import { PublicProfileCard } from "./PublicProfileCard";
 import EmojiPicker, { EmojiClickData, Theme, EmojiStyle } from 'emoji-picker-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useAutoTranslate } from "@/hooks/useAutoTranslate";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -1289,6 +1291,19 @@ const handleDeleteMessage = async (messageId: string) => {
   );
 };
 
+interface MemberProfile {
+  display_name: string;
+  username: string;
+  avatar_url?: string | null;
+  bio?: string | null;
+  status?: string | null;
+  location?: string | null;
+  twitter_url?: string | null;
+  linkedin_url?: string | null;
+  instagram_url?: string | null;
+  website_url?: string | null;
+}
+
 const MessageBubble = ({ 
   message, 
   contactName, 
@@ -1310,6 +1325,32 @@ const MessageBubble = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(message.text);
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [memberProfile, setMemberProfile] = useState<MemberProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  const handleAvatarClick = async () => {
+    if (!isGroup || !message.senderId || isAI) return;
+    
+    setShowProfileDialog(true);
+    setLoadingProfile(true);
+    
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('display_name, username, avatar_url, bio, status, location, twitter_url, linkedin_url, instagram_url, website_url')
+        .eq('user_id', message.senderId)
+        .single();
+      
+      if (profile) {
+        setMemberProfile(profile);
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
 
   const handleDelete = () => {
     if (onDelete) {
@@ -1341,7 +1382,13 @@ const MessageBubble = ({
         )}
       >
         {!isUser && (
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-secondary to-primary flex items-center justify-center flex-shrink-0">
+          <div 
+            className={cn(
+              "w-8 h-8 rounded-full bg-gradient-to-br from-secondary to-primary flex items-center justify-center flex-shrink-0",
+              isGroup && !isAI && "cursor-pointer ring-2 ring-transparent hover:ring-primary/50 transition-all"
+            )}
+            onClick={handleAvatarClick}
+          >
             {isAI ? (
               <Sparkles className="w-4 h-4" />
             ) : isGroup ? (
@@ -1498,6 +1545,22 @@ const MessageBubble = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+          {loadingProfile ? (
+            <div className="flex items-center justify-center p-8">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : memberProfile ? (
+            <PublicProfileCard profile={memberProfile} />
+          ) : (
+            <div className="p-8 text-center text-muted-foreground">
+              Profile not found
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
