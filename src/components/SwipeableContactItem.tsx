@@ -11,8 +11,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
 import { Star, Volume2, VolumeX, Trash2, BellOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PublicProfileCard } from "./PublicProfileCard";
+
+interface ContactProfile {
+  display_name: string;
+  username: string;
+  avatar_url?: string | null;
+  bio?: string | null;
+  status?: string | null;
+  location?: string | null;
+  twitter_url?: string | null;
+  linkedin_url?: string | null;
+  instagram_url?: string | null;
+  website_url?: string | null;
+}
 
 interface SwipeableContactItemProps {
   contact: {
@@ -25,6 +43,13 @@ interface SwipeableContactItemProps {
       display_name: string | null;
       status: string | null;
       avatar_url: string | null;
+      username?: string | null;
+      bio?: string | null;
+      location?: string | null;
+      twitter_url?: string | null;
+      linkedin_url?: string | null;
+      instagram_url?: string | null;
+      website_url?: string | null;
     };
   };
   displayName: string;
@@ -56,9 +81,30 @@ const SwipeableContactItem = ({
   const [translateX, setTranslateX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
   const startXRef = useRef(0);
   const currentXRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const profileData: ContactProfile = {
+    display_name: contact.profiles?.display_name || displayName,
+    username: contact.profiles?.username || displayName.toLowerCase().replace(/\s+/g, ''),
+    avatar_url: contact.profiles?.avatar_url,
+    bio: contact.profiles?.bio,
+    status: contact.profiles?.status,
+    location: contact.profiles?.location,
+    twitter_url: contact.profiles?.twitter_url,
+    linkedin_url: contact.profiles?.linkedin_url,
+    instagram_url: contact.profiles?.instagram_url,
+    website_url: contact.profiles?.website_url,
+  };
+
+  const handleAvatarClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (Math.abs(translateX) < 10) {
+      setShowProfileDialog(true);
+    }
+  };
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     startXRef.current = e.touches[0].clientX;
@@ -141,6 +187,19 @@ const SwipeableContactItem = ({
         </AlertDialogContent>
       </AlertDialog>
 
+      <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+          <PublicProfileCard 
+            profile={profileData}
+            showMessageButton
+            onMessageClick={() => {
+              setShowProfileDialog(false);
+              onStartChat();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
       <div 
         ref={containerRef}
         className="relative overflow-hidden border-b border-border/50"
@@ -202,7 +261,10 @@ const SwipeableContactItem = ({
           onClick={handleClick}
         >
           {/* Avatar */}
-          <Avatar className="w-12 h-12 flex-shrink-0">
+          <Avatar 
+            className="w-12 h-12 flex-shrink-0 cursor-pointer ring-2 ring-transparent hover:ring-primary/50 transition-all"
+            onClick={handleAvatarClick}
+          >
             <AvatarImage src={contact.profiles?.avatar_url || undefined} />
             <AvatarFallback className={`${avatarColor} text-white font-semibold`}>
               {displayName[0].toUpperCase()}
