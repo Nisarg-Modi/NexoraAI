@@ -48,6 +48,7 @@ const Index = () => {
           setCurrentView('contacts');
           setSelectedContact(null);
         }}
+        onStartDirectChat={handleStartChat}
       />
     );
   }

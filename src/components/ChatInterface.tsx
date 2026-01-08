@@ -53,13 +53,15 @@ const ChatInterface = ({
   contactName,
   isGroup = false,
   conversationId: providedConversationId,
-  onBack 
+  onBack,
+  onStartDirectChat
 }: { 
   contactUserId: string;
   contactName: string;
   isGroup?: boolean;
   conversationId?: string;
   onBack: () => void;
+  onStartDirectChat?: (userId: string, name: string) => void;
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
@@ -1040,6 +1042,7 @@ const handleDeleteMessage = async (messageId: string) => {
               onDelete={handleDeleteMessage}
               onEdit={handleEditMessage}
               currentUserId={currentUserId}
+              onStartDirectChat={onStartDirectChat}
             />
           ))
         )}
@@ -1310,7 +1313,8 @@ const MessageBubble = ({
   isGroup,
   onDelete,
   onEdit,
-  currentUserId
+  currentUserId,
+  onStartDirectChat
 }: { 
   message: Message; 
   contactName: string; 
@@ -1318,6 +1322,7 @@ const MessageBubble = ({
   onDelete?: (messageId: string) => void;
   onEdit?: (messageId: string, newContent: string) => void;
   currentUserId: string | null;
+  onStartDirectChat?: (userId: string, name: string) => void;
 }) => {
   const isUser = message.sender === "user";
   const isAI = message.sender === "ai";
@@ -1553,7 +1558,16 @@ const MessageBubble = ({
               <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
           ) : memberProfile ? (
-            <PublicProfileCard profile={memberProfile} />
+            <PublicProfileCard 
+              profile={memberProfile} 
+              showMessageButton={!!onStartDirectChat && message.senderId !== currentUserId}
+              onMessageClick={() => {
+                if (onStartDirectChat && message.senderId) {
+                  setShowProfileDialog(false);
+                  onStartDirectChat(message.senderId, memberProfile.display_name);
+                }
+              }}
+            />
           ) : (
             <div className="p-8 text-center text-muted-foreground">
               Profile not found
