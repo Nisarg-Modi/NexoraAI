@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import Meetings from "./pages/Meetings";
 import MeetingDetails from "./pages/MeetingDetails";
 import VoiceProfiles from "./pages/VoiceProfiles";
+import PublicProfile from "./pages/PublicProfile";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,7 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
+        <Route path="/profile/:username" element={<PublicProfile />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
