@@ -2,10 +2,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { User, MapPin, Twitter, Linkedin, Instagram, Globe, ExternalLink, Share2, Check } from "lucide-react";
+import { User, MapPin, Twitter, Linkedin, Instagram, Globe, ExternalLink, Share2, Check, QrCode } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { OnlineStatusDot } from "@/hooks/useOnlinePresence";
+import { QRCodeSVG } from "qrcode.react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface PublicProfileCardProps {
   profile: {
@@ -31,10 +38,11 @@ export const PublicProfileCard = ({
   onMessageClick 
 }: PublicProfileCardProps) => {
   const [copied, setCopied] = useState(false);
+  const [showQRDialog, setShowQRDialog] = useState(false);
   const hasSocialLinks = profile.twitter_url || profile.linkedin_url || profile.instagram_url || profile.website_url;
+  const profileUrl = `${window.location.origin}/profile/${profile.username}`;
 
   const handleShare = async () => {
-    const profileUrl = `${window.location.origin}/profile/${profile.username}`;
     const shareData = {
       title: `${profile.display_name}'s Profile`,
       text: `Check out ${profile.display_name}'s profile on Nexora`,
@@ -94,20 +102,64 @@ export const PublicProfileCard = ({
     <Card className="w-full max-w-md mx-auto overflow-hidden">
       {/* Header with gradient background */}
       <div className="h-24 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent relative">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleShare}
-          className="absolute top-2 right-2 h-8 w-8 bg-background/80 hover:bg-background"
-          title="Share profile"
-        >
-          {copied ? (
-            <Check className="h-4 w-4 text-green-500" />
-          ) : (
-            <Share2 className="h-4 w-4" />
-          )}
-        </Button>
+        <div className="absolute top-2 right-2 flex gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowQRDialog(true)}
+            className="h-8 w-8 bg-background/80 hover:bg-background"
+            title="Show QR code"
+          >
+            <QrCode className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleShare}
+            className="h-8 w-8 bg-background/80 hover:bg-background"
+            title="Share profile"
+          >
+            {copied ? (
+              <Check className="h-4 w-4 text-green-500" />
+            ) : (
+              <Share2 className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
       </div>
+
+      {/* QR Code Dialog */}
+      <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-center">Scan to view profile</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="bg-white p-4 rounded-xl">
+              <QRCodeSVG 
+                value={profileUrl} 
+                size={200}
+                level="H"
+                includeMargin={false}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground text-center">
+              @{profile.username}
+            </p>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(profileUrl);
+                toast.success("Link copied!");
+              }}
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Copy Link
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       
       <CardHeader className="relative pt-0 pb-4">
         {/* Avatar overlapping the header */}
