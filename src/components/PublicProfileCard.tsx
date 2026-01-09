@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { User, MapPin, Twitter, Linkedin, Instagram, Globe, ExternalLink, Share2, Check } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { OnlineStatusDot } from "@/hooks/useOnlinePresence";
 
 interface PublicProfileCardProps {
   profile: {
@@ -18,6 +19,7 @@ interface PublicProfileCardProps {
     linkedin_url?: string | null;
     instagram_url?: string | null;
     website_url?: string | null;
+    user_id?: string;
   };
   showMessageButton?: boolean;
   onMessageClick?: () => void;
@@ -110,12 +112,21 @@ export const PublicProfileCard = ({
       <CardHeader className="relative pt-0 pb-4">
         {/* Avatar overlapping the header */}
         <div className="-mt-12 flex justify-center">
-          <Avatar className="w-24 h-24 border-4 border-background shadow-lg">
-            <AvatarImage src={profile.avatar_url || undefined} alt={profile.display_name} />
-            <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-              {profile.display_name ? profile.display_name[0].toUpperCase() : <User className="w-8 h-8" />}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative">
+            <Avatar className="w-24 h-24 border-4 border-background shadow-lg">
+              <AvatarImage src={profile.avatar_url || undefined} alt={profile.display_name} />
+              <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
+                {profile.display_name ? profile.display_name[0].toUpperCase() : <User className="w-8 h-8" />}
+              </AvatarFallback>
+            </Avatar>
+            {profile.user_id && (
+              <OnlineStatusDot 
+                userId={profile.user_id} 
+                size="lg"
+                className="absolute bottom-1 right-1"
+              />
+            )}
+          </div>
         </div>
         
         {/* Name and username */}
