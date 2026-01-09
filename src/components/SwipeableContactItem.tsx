@@ -18,6 +18,7 @@ import {
 import { Star, Volume2, VolumeX, Trash2, BellOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PublicProfileCard } from "./PublicProfileCard";
+import { OnlineStatusDot } from "@/hooks/useOnlinePresence";
 
 interface ContactProfile {
   display_name: string;
@@ -86,7 +87,7 @@ const SwipeableContactItem = ({
   const currentXRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const profileData: ContactProfile = {
+  const profileData: ContactProfile & { user_id: string } = {
     display_name: contact.profiles?.display_name || displayName,
     username: contact.profiles?.username || displayName.toLowerCase().replace(/\s+/g, ''),
     avatar_url: contact.profiles?.avatar_url,
@@ -97,6 +98,7 @@ const SwipeableContactItem = ({
     linkedin_url: contact.profiles?.linkedin_url,
     instagram_url: contact.profiles?.instagram_url,
     website_url: contact.profiles?.website_url,
+    user_id: contact.contact_user_id,
   };
 
   const handleAvatarClick = (e: React.MouseEvent) => {
@@ -261,15 +263,22 @@ const SwipeableContactItem = ({
           onClick={handleClick}
         >
           {/* Avatar */}
-          <Avatar 
-            className="w-12 h-12 flex-shrink-0 cursor-pointer ring-2 ring-transparent hover:ring-primary/50 transition-all"
-            onClick={handleAvatarClick}
-          >
-            <AvatarImage src={contact.profiles?.avatar_url || undefined} />
-            <AvatarFallback className={`${avatarColor} text-white font-semibold`}>
-              {displayName[0].toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative flex-shrink-0">
+            <Avatar 
+              className="w-12 h-12 cursor-pointer ring-2 ring-transparent hover:ring-primary/50 transition-all"
+              onClick={handleAvatarClick}
+            >
+              <AvatarImage src={contact.profiles?.avatar_url || undefined} />
+              <AvatarFallback className={`${avatarColor} text-white font-semibold`}>
+                {displayName[0].toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <OnlineStatusDot 
+              userId={contact.contact_user_id} 
+              size="sm"
+              className="absolute bottom-0 right-0"
+            />
+          </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">

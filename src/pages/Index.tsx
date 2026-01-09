@@ -17,6 +17,7 @@ import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { VoiceProfileManager } from '@/components/VoiceProfileManager';
 import Meetings from '@/pages/Meetings';
 import { UpdatesView } from "@/components/UpdatesView";
+import { useOnlinePresence } from "@/hooks/useOnlinePresence";
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<'home' | 'contacts' | 'chat'>('contacts');
@@ -26,6 +27,9 @@ const Index = () => {
   
   // Initialize semantic search hook for real-time embedding generation
   useSemanticSearch();
+  
+  // Initialize online presence tracking
+  useOnlinePresence();
 
   const handleStartChat = (contactUserId: string, contactName: string) => {
     setSelectedContact({ userId: contactUserId, name: contactName, isGroup: false });
