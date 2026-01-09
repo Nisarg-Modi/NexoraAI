@@ -2,7 +2,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { User, MapPin, Twitter, Linkedin, Instagram, Globe, ExternalLink } from "lucide-react";
+import { User, MapPin, Twitter, Linkedin, Instagram, Globe, ExternalLink, Share2, Check } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface PublicProfileCardProps {
   profile: {
@@ -26,7 +28,20 @@ export const PublicProfileCard = ({
   showMessageButton = false,
   onMessageClick 
 }: PublicProfileCardProps) => {
+  const [copied, setCopied] = useState(false);
   const hasSocialLinks = profile.twitter_url || profile.linkedin_url || profile.instagram_url || profile.website_url;
+
+  const handleShare = async () => {
+    const profileUrl = `${window.location.origin}/profile/${profile.username}`;
+    try {
+      await navigator.clipboard.writeText(profileUrl);
+      setCopied(true);
+      toast.success("Profile link copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast.error("Failed to copy link");
+    }
+  };
 
   const socialLinks = [
     {
@@ -58,7 +73,21 @@ export const PublicProfileCard = ({
   return (
     <Card className="w-full max-w-md mx-auto overflow-hidden">
       {/* Header with gradient background */}
-      <div className="h-24 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent" />
+      <div className="h-24 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleShare}
+          className="absolute top-2 right-2 h-8 w-8 bg-background/80 hover:bg-background"
+          title="Share profile"
+        >
+          {copied ? (
+            <Check className="h-4 w-4 text-green-500" />
+          ) : (
+            <Share2 className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
       
       <CardHeader className="relative pt-0 pb-4">
         {/* Avatar overlapping the header */}
