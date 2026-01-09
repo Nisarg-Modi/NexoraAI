@@ -33,13 +33,31 @@ export const PublicProfileCard = ({
 
   const handleShare = async () => {
     const profileUrl = `${window.location.origin}/profile/${profile.username}`;
+    const shareData = {
+      title: `${profile.display_name}'s Profile`,
+      text: `Check out ${profile.display_name}'s profile on Nexora`,
+      url: profileUrl,
+    };
+
+    // Try native share first (mobile devices)
+    if (navigator.share && navigator.canShare?.(shareData)) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (err) {
+        // User cancelled or share failed, fall back to clipboard
+        if ((err as Error).name === 'AbortError') return;
+      }
+    }
+
+    // Fallback to clipboard
     try {
       await navigator.clipboard.writeText(profileUrl);
       setCopied(true);
       toast.success("Profile link copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      toast.error("Failed to copy link");
+      toast.error("Failed to share profile");
     }
   };
 
