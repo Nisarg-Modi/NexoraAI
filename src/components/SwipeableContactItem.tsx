@@ -15,7 +15,7 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
-import { Star, Volume2, VolumeX, Trash2, BellOff } from "lucide-react";
+import { Star, Volume2, VolumeX, Trash2, BellOff, BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PublicProfileCard } from "./PublicProfileCard";
 import { OnlineStatusDot, LastSeenStatus } from "@/hooks/useOnlinePresence";
@@ -51,6 +51,7 @@ interface SwipeableContactItemProps {
       linkedin_url?: string | null;
       instagram_url?: string | null;
       website_url?: string | null;
+      is_verified?: boolean | null;
     };
   };
   displayName: string;
@@ -87,7 +88,7 @@ const SwipeableContactItem = ({
   const currentXRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const profileData: ContactProfile & { user_id: string } = {
+  const profileData: ContactProfile & { user_id: string; is_verified?: boolean | null } = {
     display_name: contact.profiles?.display_name || displayName,
     username: contact.profiles?.username || displayName.toLowerCase().replace(/\s+/g, ''),
     avatar_url: contact.profiles?.avatar_url,
@@ -99,6 +100,7 @@ const SwipeableContactItem = ({
     instagram_url: contact.profiles?.instagram_url,
     website_url: contact.profiles?.website_url,
     user_id: contact.contact_user_id,
+    is_verified: contact.profiles?.is_verified,
   };
 
   const handleAvatarClick = (e: React.MouseEvent) => {
@@ -283,8 +285,11 @@ const SwipeableContactItem = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-1.5 min-w-0">
-                <h3 className="font-semibold truncate text-foreground">
+                <h3 className="font-semibold truncate text-foreground flex items-center gap-1">
                   {displayName} {emoji}
+                  {contact.profiles?.is_verified && (
+                    <BadgeCheck className="w-4 h-4 text-primary fill-primary/20 flex-shrink-0" />
+                  )}
                 </h3>
                 {!soundEnabled && (
                   <BellOff className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
