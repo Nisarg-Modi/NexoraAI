@@ -18,7 +18,7 @@ import {
 import { Star, Volume2, VolumeX, Trash2, BellOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PublicProfileCard } from "./PublicProfileCard";
-import { OnlineStatusDot } from "@/hooks/useOnlinePresence";
+import { OnlineStatusDot, LastSeenStatus } from "@/hooks/useOnlinePresence";
 
 interface ContactProfile {
   display_name: string;
@@ -312,12 +312,15 @@ const SwipeableContactItem = ({
                 </button>
               </div>
             </div>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground truncate flex-1">
-                {statusMsg}
-              </p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-muted-foreground truncate">
+                  {statusMsg}
+                </p>
+                <LastSeenStatus userId={contact.contact_user_id} />
+              </div>
               {unreadCount > 0 && (
-                <Badge className="bg-accent text-accent-foreground rounded-full w-5 h-5 flex items-center justify-center p-0 text-xs ml-2">
+                <Badge className="bg-accent text-accent-foreground rounded-full w-5 h-5 flex items-center justify-center p-0 text-xs flex-shrink-0">
                   {unreadCount}
                 </Badge>
               )}

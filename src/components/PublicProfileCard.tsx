@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { User, MapPin, Twitter, Linkedin, Instagram, Globe, ExternalLink, Share2, Check, QrCode } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { OnlineStatusDot } from "@/hooks/useOnlinePresence";
+import { OnlineStatusDot, LastSeenStatus } from "@/hooks/useOnlinePresence";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Dialog,
@@ -185,6 +185,9 @@ export const PublicProfileCard = ({
         <div className="text-center mt-3 space-y-1">
           <h2 className="text-xl font-bold">{profile.display_name}</h2>
           <p className="text-sm text-muted-foreground">@{profile.username}</p>
+          {profile.user_id && (
+            <LastSeenStatus userId={profile.user_id} className="block" />
+          )}
         </div>
 
         {/* Status badge */}
