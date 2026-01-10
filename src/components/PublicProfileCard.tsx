@@ -2,7 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { User, MapPin, Twitter, Linkedin, Instagram, Globe, ExternalLink, Share2, Check, QrCode } from "lucide-react";
+import { User, MapPin, Twitter, Linkedin, Instagram, Globe, ExternalLink, Share2, Check, QrCode, BadgeCheck } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { OnlineStatusDot, LastSeenStatus } from "@/hooks/useOnlinePresence";
@@ -27,6 +27,7 @@ interface PublicProfileCardProps {
     instagram_url?: string | null;
     website_url?: string | null;
     user_id?: string;
+    is_verified?: boolean | null;
   };
   showMessageButton?: boolean;
   onMessageClick?: () => void;
@@ -183,7 +184,12 @@ export const PublicProfileCard = ({
         
         {/* Name and username */}
         <div className="text-center mt-3 space-y-1">
-          <h2 className="text-xl font-bold">{profile.display_name}</h2>
+          <h2 className="text-xl font-bold flex items-center justify-center gap-1.5">
+            {profile.display_name}
+            {profile.is_verified && (
+              <BadgeCheck className="w-5 h-5 text-primary fill-primary/20" />
+            )}
+          </h2>
           <p className="text-sm text-muted-foreground">@{profile.username}</p>
           {profile.user_id && (
             <LastSeenStatus userId={profile.user_id} className="block" />

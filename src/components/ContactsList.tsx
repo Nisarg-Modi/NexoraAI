@@ -26,6 +26,7 @@ interface Contact {
     display_name: string | null;
     status: string | null;
     avatar_url: string | null;
+    is_verified?: boolean | null;
   };
 }
 
@@ -270,8 +271,12 @@ const ContactsList = ({ onStartChat, onStartGroupChat }: ContactsListProps) => {
       
       const contactsWithProfiles = await Promise.all(
         data.map(async (contact) => {
+          // Fetch profile with is_verified field
           const { data: profile } = await supabase
-            .rpc('get_safe_profile', { profile_user_id: contact.contact_user_id });
+            .from('profiles')
+            .select('display_name, status, avatar_url, username, bio, location, twitter_url, linkedin_url, instagram_url, website_url, is_verified')
+            .eq('user_id', contact.contact_user_id)
+            .single();
 
           // Get conversation ID for this contact
           const { data: convData } = await supabase
@@ -299,10 +304,11 @@ const ContactsList = ({ onStartChat, onStartGroupChat }: ContactsListProps) => {
             ...contact,
             is_favourite: contact.is_favourite || false,
             notification_sound_enabled: contact.notification_sound_enabled ?? true,
-            profiles: profile?.[0] || {
+            profiles: profile || {
               display_name: null,
               status: null,
               avatar_url: null,
+              is_verified: false,
             },
           };
         })

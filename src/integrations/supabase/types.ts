@@ -909,6 +909,7 @@ export type Database = {
           gender: string | null
           id: string
           instagram_url: string | null
+          is_verified: boolean | null
           linkedin_url: string | null
           location: string | null
           notification_sound_enabled: boolean | null
@@ -934,6 +935,7 @@ export type Database = {
           gender?: string | null
           id?: string
           instagram_url?: string | null
+          is_verified?: boolean | null
           linkedin_url?: string | null
           location?: string | null
           notification_sound_enabled?: boolean | null
@@ -959,6 +961,7 @@ export type Database = {
           gender?: string | null
           id?: string
           instagram_url?: string | null
+          is_verified?: boolean | null
           linkedin_url?: string | null
           location?: string | null
           notification_sound_enabled?: boolean | null

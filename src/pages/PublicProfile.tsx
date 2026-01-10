@@ -39,7 +39,7 @@ const PublicProfile = () => {
       try {
         const { data, error: fetchError } = await supabase
           .from("profiles")
-          .select("display_name, username, avatar_url, bio, status, location, twitter_url, linkedin_url, instagram_url, website_url, user_id")
+          .select("display_name, username, avatar_url, bio, status, location, twitter_url, linkedin_url, instagram_url, website_url, user_id, is_verified")
           .eq("username", username)
           .single();
 
