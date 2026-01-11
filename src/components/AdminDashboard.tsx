@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ShieldAlert, Loader2, Shield, ShieldCheck, User, Trash2 } from "lucide-react";
+import { ShieldAlert, Loader2, Shield, ShieldCheck, User, Trash2, BadgeCheck, BadgeX } from "lucide-react";
 import { toast } from "sonner";
 import { Database } from "@/integrations/supabase/types";
 
@@ -31,6 +31,7 @@ interface UserProfile {
   status: string | null;
   created_at: string;
   roles: AppRole[];
+  is_verified: boolean;
 }
 
 interface RevokeConfirmation {
@@ -107,7 +108,7 @@ export const AdminDashboard = () => {
       // Fetch profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, username, display_name, avatar_url, status, created_at')
+        .select('user_id, username, display_name, avatar_url, status, created_at, is_verified')
         .order('created_at', { ascending: false });
 
       if (profilesError) throw profilesError;
@@ -122,6 +123,7 @@ export const AdminDashboard = () => {
       // Combine profiles with their roles
       const usersWithRoles = (profiles || []).map(profile => ({
         ...profile,
+        is_verified: profile.is_verified ?? false,
         roles: (roles || [])
           .filter(r => r.user_id === profile.user_id)
           .map(r => r.role)
@@ -132,6 +134,22 @@ export const AdminDashboard = () => {
       toast.error("Failed to load users: " + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleVerification = async (userId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_verified: !currentStatus })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast.success(currentStatus ? "Verification removed" : "User verified successfully");
+      loadAllUsers();
+    } catch (error: any) {
+      toast.error("Failed to update verification: " + error.message);
     }
   };
 
@@ -302,6 +320,7 @@ export const AdminDashboard = () => {
             <TableRow>
               <TableHead>User</TableHead>
               <TableHead>Username</TableHead>
+              <TableHead>Verified</TableHead>
               <TableHead>Current Roles</TableHead>
               <TableHead>Manage Roles</TableHead>
               <TableHead>Actions</TableHead>
@@ -324,6 +343,30 @@ export const AdminDashboard = () => {
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline">@{user.username}</Badge>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant={user.is_verified ? "default" : "outline"}
+                    size="sm"
+                    className={user.is_verified 
+                      ? "bg-primary hover:bg-primary/90 text-primary-foreground" 
+                      : "text-muted-foreground hover:text-foreground"
+                    }
+                    onClick={() => toggleVerification(user.user_id, user.is_verified)}
+                    title={user.is_verified ? "Click to remove verification" : "Click to verify user"}
+                  >
+                    {user.is_verified ? (
+                      <>
+                        <BadgeCheck className="h-4 w-4 mr-1" />
+                        Verified
+                      </>
+                    ) : (
+                      <>
+                        <BadgeX className="h-4 w-4 mr-1" />
+                        Unverified
+                      </>
+                    )}
+                  </Button>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
