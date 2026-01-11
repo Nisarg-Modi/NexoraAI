@@ -3,10 +3,12 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { User, MapPin, Twitter, Linkedin, Instagram, Globe, ExternalLink, Share2, Check, QrCode, BadgeCheck } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { OnlineStatusDot, LastSeenStatus } from "@/hooks/useOnlinePresence";
 import { QRCodeSVG } from "qrcode.react";
+import { UserBadges, BadgeType } from "@/components/UserBadges";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -40,8 +42,23 @@ export const PublicProfileCard = ({
 }: PublicProfileCardProps) => {
   const [copied, setCopied] = useState(false);
   const [showQRDialog, setShowQRDialog] = useState(false);
+  const [badges, setBadges] = useState<BadgeType[]>([]);
   const hasSocialLinks = profile.twitter_url || profile.linkedin_url || profile.instagram_url || profile.website_url;
   const profileUrl = `${window.location.origin}/profile/${profile.username}`;
+
+  useEffect(() => {
+    if (profile.user_id) {
+      supabase
+        .from('user_badges')
+        .select('badge')
+        .eq('user_id', profile.user_id)
+        .then(({ data }) => {
+          if (data) {
+            setBadges(data.map(b => b.badge as BadgeType));
+          }
+        });
+    }
+  }, [profile.user_id]);
 
   const handleShare = async () => {
     const shareData = {
@@ -191,6 +208,11 @@ export const PublicProfileCard = ({
             )}
           </h2>
           <p className="text-sm text-muted-foreground">@{profile.username}</p>
+          {badges.length > 0 && (
+            <div className="flex justify-center pt-1">
+              <UserBadges badges={badges} size="sm" showLabels />
+            </div>
+          )}
           {profile.user_id && (
             <LastSeenStatus userId={profile.user_id} className="block" />
           )}

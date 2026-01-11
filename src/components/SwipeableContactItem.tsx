@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -19,6 +19,8 @@ import { Star, Volume2, VolumeX, Trash2, BellOff, BadgeCheck } from "lucide-reac
 import { cn } from "@/lib/utils";
 import { PublicProfileCard } from "./PublicProfileCard";
 import { OnlineStatusDot, LastSeenStatus } from "@/hooks/useOnlinePresence";
+import { UserBadges, BadgeType } from "@/components/UserBadges";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ContactProfile {
   display_name: string;
@@ -84,9 +86,22 @@ const SwipeableContactItem = ({
   const [isDragging, setIsDragging] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [badges, setBadges] = useState<BadgeType[]>([]);
   const startXRef = useRef(0);
   const currentXRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    supabase
+      .from('user_badges')
+      .select('badge')
+      .eq('user_id', contact.contact_user_id)
+      .then(({ data }) => {
+        if (data) {
+          setBadges(data.map(b => b.badge as BadgeType));
+        }
+      });
+  }, [contact.contact_user_id]);
 
   const profileData: ContactProfile & { user_id: string; is_verified?: boolean | null } = {
     display_name: contact.profiles?.display_name || displayName,
@@ -291,6 +306,9 @@ const SwipeableContactItem = ({
                     <BadgeCheck className="w-4 h-4 text-primary fill-primary/20 flex-shrink-0" />
                   )}
                 </h3>
+                {badges.length > 0 && (
+                  <UserBadges badges={badges} size="sm" className="flex-shrink-0" />
+                )}
                 {!soundEnabled && (
                   <BellOff className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                 )}
