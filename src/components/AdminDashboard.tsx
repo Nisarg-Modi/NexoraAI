@@ -17,9 +17,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ShieldAlert, Loader2, Shield, ShieldCheck, User, Trash2, BadgeCheck, BadgeX } from "lucide-react";
+import { ShieldAlert, Loader2, Shield, ShieldCheck, User, Trash2, BadgeCheck, BadgeX, Crown, Briefcase, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Database } from "@/integrations/supabase/types";
+import { UserBadges, BadgeType, badgeConfig } from "@/components/UserBadges";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -32,6 +33,7 @@ interface UserProfile {
   created_at: string;
   roles: AppRole[];
   is_verified: boolean;
+  badges: BadgeType[];
 }
 
 interface RevokeConfirmation {
@@ -120,16 +122,26 @@ export const AdminDashboard = () => {
 
       if (rolesError) throw rolesError;
 
-      // Combine profiles with their roles
-      const usersWithRoles = (profiles || []).map(profile => ({
+      // Fetch all user badges
+      const { data: userBadges, error: badgesError } = await supabase
+        .from('user_badges')
+        .select('user_id, badge');
+
+      if (badgesError) throw badgesError;
+
+      // Combine profiles with their roles and badges
+      const usersWithRolesAndBadges = (profiles || []).map(profile => ({
         ...profile,
         is_verified: profile.is_verified ?? false,
         roles: (roles || [])
           .filter(r => r.user_id === profile.user_id)
-          .map(r => r.role)
+          .map(r => r.role),
+        badges: (userBadges || [])
+          .filter(b => b.user_id === profile.user_id)
+          .map(b => b.badge as BadgeType)
       }));
 
-      setUsers(usersWithRoles);
+      setUsers(usersWithRolesAndBadges);
     } catch (error: any) {
       toast.error("Failed to load users: " + error.message);
     } finally {
@@ -150,6 +162,47 @@ export const AdminDashboard = () => {
       loadAllUsers();
     } catch (error: any) {
       toast.error("Failed to update verification: " + error.message);
+    }
+  };
+
+  const grantBadge = async (userId: string, badge: BadgeType) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase
+        .from('user_badges')
+        .insert({ user_id: userId, badge, granted_by: user?.id });
+
+      if (error) {
+        if (error.code === '23505') {
+          toast.error("User already has this badge");
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast.success(`Badge "${badge}" granted successfully`);
+      loadAllUsers();
+    } catch (error: any) {
+      toast.error("Failed to grant badge: " + error.message);
+    }
+  };
+
+  const revokeBadge = async (userId: string, badge: BadgeType) => {
+    try {
+      const { error } = await supabase
+        .from('user_badges')
+        .delete()
+        .eq('user_id', userId)
+        .eq('badge', badge);
+
+      if (error) throw error;
+
+      toast.success(`Badge "${badge}" revoked successfully`);
+      loadAllUsers();
+    } catch (error: any) {
+      toast.error("Failed to revoke badge: " + error.message);
     }
   };
 
@@ -321,6 +374,8 @@ export const AdminDashboard = () => {
               <TableHead>User</TableHead>
               <TableHead>Username</TableHead>
               <TableHead>Verified</TableHead>
+              <TableHead>Badges</TableHead>
+              <TableHead>Manage Badges</TableHead>
               <TableHead>Current Roles</TableHead>
               <TableHead>Manage Roles</TableHead>
               <TableHead>Actions</TableHead>
@@ -367,6 +422,65 @@ export const AdminDashboard = () => {
                       </>
                     )}
                   </Button>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {user.badges.length > 0 ? (
+                      user.badges.map((badge) => {
+                        const config = badgeConfig[badge];
+                        const Icon = config.icon === Crown ? Crown : config.icon === Briefcase ? Briefcase : Users;
+                        return (
+                          <Badge
+                            key={badge}
+                            className={`flex items-center gap-1 cursor-pointer hover:opacity-80 ${config.bgColor} ${config.textColor} border-0`}
+                            onClick={() => revokeBadge(user.user_id, badge)}
+                            title="Click to revoke"
+                          >
+                            <Icon className="h-3 w-3" />
+                            {badge}
+                            <span className="ml-1 text-xs">×</span>
+                          </Badge>
+                        );
+                      })
+                    ) : (
+                      <span className="text-sm text-muted-foreground">No badges</span>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Select
+                    onValueChange={(value) => grantBadge(user.user_id, value as BadgeType)}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue placeholder="Add badge" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {!user.badges.includes('premium') && (
+                        <SelectItem value="premium">
+                          <div className="flex items-center gap-2">
+                            <Crown className="h-4 w-4 text-amber-500" />
+                            Premium
+                          </div>
+                        </SelectItem>
+                      )}
+                      {!user.badges.includes('staff') && (
+                        <SelectItem value="staff">
+                          <div className="flex items-center gap-2">
+                            <Briefcase className="h-4 w-4 text-blue-500" />
+                            Staff
+                          </div>
+                        </SelectItem>
+                      )}
+                      {!user.badges.includes('partner') && (
+                        <SelectItem value="partner">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-purple-500" />
+                            Partner
+                          </div>
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
