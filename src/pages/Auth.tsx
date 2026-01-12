@@ -4,12 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Sparkles, Shield, Zap } from "lucide-react";
+import { Sparkles, Shield, Zap, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import nexoraLogo from "@/assets/nexora-logo.png";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
+const forgotPasswordSchema = z.object({
+  email: z.string().trim().email("Invalid email address").max(255, "Email too long"),
+});
 
 const loginSchema = z.object({
   username: z.string().trim().min(3, "Username must be at least 3 characters").max(30, "Username too long"),
@@ -25,8 +29,10 @@ const signupSchema = z.object({
   gender: z.enum(["male", "female", "other"], { required_error: "Please select your gender" }),
 });
 
+type AuthMode = "login" | "signup" | "forgot-password";
+
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [mode, setMode] = useState<AuthMode>("login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,6 +40,7 @@ const Auth = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [gender, setGender] = useState<"male" | "female" | "other">();
   const [loading, setLoading] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -46,13 +53,58 @@ const Auth = () => {
     });
   }, [navigate]);
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      forgotPasswordSchema.parse({ email });
+
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: redirectUrl,
+      });
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        setResetEmailSent(true);
+        toast({
+          title: "Check your email",
+          description: "We've sent you a password reset link.",
+        });
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation error",
+          description: error.errors[0].message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       // Validate input
-      if (isLogin) {
+      if (mode === "login") {
         loginSchema.parse({ username, password });
 
         try {
@@ -139,8 +191,8 @@ const Auth = () => {
             variant: "destructive",
           });
         }
-      } else {
-        signupSchema.parse({ 
+      } else if (mode === "signup") {
+        signupSchema.parse({
           username, 
           email, 
           password, 
@@ -259,32 +311,103 @@ const Auth = () => {
             Smarter chats, stronger bonds, brighter future.
           </p>
           <p className="text-muted-foreground text-sm">
-            {isLogin ? "Welcome back" : "Join the intelligent messaging platform"}
+            {mode === "login" && "Welcome back"}
+            {mode === "signup" && "Join the intelligent messaging platform"}
+            {mode === "forgot-password" && "Reset your password"}
           </p>
         </div>
 
-        {/* Auth Form */}
-        <form onSubmit={handleAuth} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
-            <Input
-              id="username"
-              type="text"
-              placeholder={isLogin ? "Enter your username" : "Choose a username"}
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              className="bg-muted border-border"
-              maxLength={30}
-            />
-            {!isLogin && (
-              <p className="text-xs text-muted-foreground">
-                Only letters, numbers, and underscores allowed
-              </p>
+        {/* Forgot Password Form */}
+        {mode === "forgot-password" ? (
+          <div className="space-y-4">
+            {resetEmailSent ? (
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                  <Shield className="w-8 h-8 text-primary" />
+                </div>
+                <p className="text-muted-foreground">
+                  We've sent a password reset link to <strong>{email}</strong>. 
+                  Please check your email and follow the instructions.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setMode("login");
+                    setResetEmailSent(false);
+                    setEmail("");
+                  }}
+                  className="w-full"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Sign In
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="Enter your email address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="bg-muted border-border"
+                    maxLength={255}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    We'll send you a link to reset your password
+                  </p>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-primary hover:bg-primary-glow"
+                  disabled={loading}
+                >
+                  {loading ? "Sending..." : "Send Reset Link"}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setMode("login");
+                    setEmail("");
+                  }}
+                  className="w-full"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Sign In
+                </Button>
+              </form>
             )}
           </div>
+        ) : (
+          /* Auth Form */
+          <form onSubmit={handleAuth} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder={mode === "login" ? "Enter your username" : "Choose a username"}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                className="bg-muted border-border"
+                maxLength={30}
+              />
+              {mode === "signup" && (
+                <p className="text-xs text-muted-foreground">
+                  Only letters, numbers, and underscores allowed
+                </p>
+              )}
+            </div>
 
-          {!isLogin && (
+            {mode === "signup" && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -350,56 +473,69 @@ const Auth = () => {
                   </div>
                 </RadioGroup>
               </div>
-            </>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="bg-muted border-border"
-              minLength={8}
-              maxLength={100}
-            />
-            {!isLogin && (
-              <p className="text-xs text-muted-foreground">
-                Must be at least 8 characters
-              </p>
+              </>
             )}
-          </div>
 
-          <Button
-            type="submit"
-            className="w-full bg-primary hover:bg-primary-glow"
-            disabled={loading}
-          >
-            {loading ? "Processing..." : isLogin ? "Sign In" : "Create Account"}
-          </Button>
-        </form>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="bg-muted border-border"
+                minLength={8}
+                maxLength={100}
+              />
+              {mode === "signup" && (
+                <p className="text-xs text-muted-foreground">
+                  Must be at least 8 characters
+                </p>
+              )}
+            </div>
+
+            {mode === "login" && (
+              <button
+                type="button"
+                onClick={() => setMode("forgot-password")}
+                className="text-sm text-primary hover:underline"
+              >
+                Forgot your password?
+              </button>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full bg-primary hover:bg-primary-glow"
+              disabled={loading}
+            >
+              {loading ? "Processing..." : mode === "login" ? "Sign In" : "Create Account"}
+            </Button>
+          </form>
+        )}
 
         {/* Toggle Login/Signup */}
-        <div className="mt-6 text-center">
-          <button
-            type="button"
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setEmail("");
-              setDisplayName("");
-              setPhoneNumber("");
-              setGender(undefined);
-            }}
-            className="text-sm text-muted-foreground hover:text-primary transition-colors"
-          >
-            {isLogin
-              ? "Don't have an account? Sign up"
-              : "Already have an account? Sign in"}
-          </button>
-        </div>
+        {mode !== "forgot-password" && (
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === "login" ? "signup" : "login");
+                setEmail("");
+                setDisplayName("");
+                setPhoneNumber("");
+                setGender(undefined);
+              }}
+              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              {mode === "login"
+                ? "Don't have an account? Sign up"
+                : "Already have an account? Sign in"}
+            </button>
+          </div>
+        )}
 
         {/* Features */}
         <div className="mt-8 pt-6 border-t border-border space-y-3">
