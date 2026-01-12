@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { GlobalIncomingCallListener } from "@/components/GlobalIncomingCallListener";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import Meetings from "./pages/Meetings";
 import MeetingDetails from "./pages/MeetingDetails";
@@ -42,6 +43,7 @@ const AppContent = () => {
       <GlobalIncomingCallListener />
       <Routes>
         <Route path="/auth" element={<Auth />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           path="/"
           element={
