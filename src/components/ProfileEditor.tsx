@@ -17,6 +17,7 @@ import { CameraResultType, CameraSource } from '@capacitor/camera';
 import { NotificationSettings } from "./NotificationSettings";
 import { DoNotDisturbSettings } from "./DoNotDisturbSettings";
 import { LanguageSettings } from "./LanguageSettings";
+import { BadgeRequestForm } from "./BadgeRequestForm";
 import { cn } from "@/lib/utils";
 
 interface QuickStats {
@@ -646,6 +647,9 @@ export const ProfileEditor = () => {
           "Save Profile"
         )}
       </Button>
+
+      {/* Badge Request */}
+      <BadgeRequestForm />
 
       {/* Language Settings */}
       <LanguageSettings />

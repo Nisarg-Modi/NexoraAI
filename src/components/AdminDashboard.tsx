@@ -17,10 +17,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ShieldAlert, Loader2, Shield, ShieldCheck, User, Trash2, BadgeCheck, BadgeX, Crown, Briefcase, Users } from "lucide-react";
+import { ShieldAlert, Loader2, Shield, ShieldCheck, User, Trash2, BadgeCheck, BadgeX, Crown, Briefcase, Users, Inbox } from "lucide-react";
 import { toast } from "sonner";
 import { Database } from "@/integrations/supabase/types";
 import { UserBadges, BadgeType, badgeConfig } from "@/components/UserBadges";
+import { BadgeRequestsAdmin } from "@/components/BadgeRequestsAdmin";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -360,13 +361,18 @@ export const AdminDashboard = () => {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ShieldAlert className="h-5 w-5 text-primary" />
-          All Users ({users.length})
-        </CardTitle>
-      </CardHeader>
+    <div className="space-y-6">
+      {/* Badge Requests Section */}
+      <BadgeRequestsAdmin />
+
+      {/* Users Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5 text-primary" />
+            All Users ({users.length})
+          </CardTitle>
+        </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
@@ -635,6 +641,7 @@ export const AdminDashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+      </Card>
+    </div>
   );
 };

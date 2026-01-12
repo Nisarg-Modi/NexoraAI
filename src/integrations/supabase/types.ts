@@ -100,6 +100,45 @@ export type Database = {
         }
         Relationships: []
       }
+      badge_requests: {
+        Row: {
+          badge: Database["public"]["Enums"]["badge_type"]
+          created_at: string
+          id: string
+          reason: string | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          badge: Database["public"]["Enums"]["badge_type"]
+          created_at?: string
+          id?: string
+          reason?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          badge?: Database["public"]["Enums"]["badge_type"]
+          created_at?: string
+          id?: string
+          reason?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       bot_interactions: {
         Row: {
           command: string | null
