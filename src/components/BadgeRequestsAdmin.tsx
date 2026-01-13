@@ -84,6 +84,34 @@ export const BadgeRequestsAdmin = () => {
     }
   };
 
+  const sendNotificationEmail = async (
+    userId: string,
+    userName: string,
+    badgeType: string,
+    status: "approved" | "rejected",
+    rejectionReason?: string
+  ) => {
+    try {
+      const { error } = await supabase.functions.invoke('send-badge-notification', {
+        body: {
+          userId,
+          userName,
+          badgeType,
+          status,
+          rejectionReason
+        }
+      });
+
+      if (error) {
+        console.error("Failed to send notification email:", error);
+      } else {
+        console.log("Notification email sent successfully");
+      }
+    } catch (error) {
+      console.error("Error sending notification email:", error);
+    }
+  };
+
   const approveRequest = async (request: BadgeRequest) => {
     setProcessing(true);
     try {
@@ -119,6 +147,14 @@ export const BadgeRequestsAdmin = () => {
 
       if (updateError) throw updateError;
 
+      // Send notification email
+      await sendNotificationEmail(
+        request.user_id,
+        request.user?.display_name || 'User',
+        request.badge,
+        'approved'
+      );
+
       toast.success(`Badge "${request.badge}" approved for ${request.user?.display_name}`);
       loadRequests();
     } catch (error: any) {
@@ -146,6 +182,15 @@ export const BadgeRequestsAdmin = () => {
         .eq('id', rejectDialog.request.id);
 
       if (error) throw error;
+
+      // Send notification email
+      await sendNotificationEmail(
+        rejectDialog.request.user_id,
+        rejectDialog.request.user?.display_name || 'User',
+        rejectDialog.request.badge,
+        'rejected',
+        rejectionReason.trim() || undefined
+      );
 
       toast.success(`Badge request rejected`);
       setRejectDialog(null);
