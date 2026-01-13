@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
 import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,11 @@ export const DocumentWallet = () => {
   const [isEmergency, setIsEmergency] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
+  
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const isNative = Capacitor.isNativePlatform();
 
   const categories = [
     { value: 'id', label: 'ID Card' },
@@ -76,47 +82,89 @@ export const DocumentWallet = () => {
   };
 
   const captureFromGallery = async () => {
-    try {
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Photos
-      });
+    if (isNative) {
+      try {
+        const image = await Camera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.DataUrl,
+          source: CameraSource.Photos
+        });
 
-      if (image.dataUrl) {
-        await uploadDocument(image.dataUrl, image.format);
+        if (image.dataUrl) {
+          await uploadDocument(image.dataUrl, image.format || 'jpeg');
+        }
+      } catch (error) {
+        console.error('Error accessing gallery:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to access gallery',
+          variant: 'destructive'
+        });
       }
-    } catch (error) {
-      console.error('Error accessing gallery:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to access gallery',
-        variant: 'destructive'
-      });
+    } else {
+      // Web fallback - trigger file input
+      galleryInputRef.current?.click();
     }
   };
 
   const captureFromCamera = async () => {
-    try {
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera
-      });
+    if (isNative) {
+      try {
+        const image = await Camera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.DataUrl,
+          source: CameraSource.Camera
+        });
 
-      if (image.dataUrl) {
-        await uploadDocument(image.dataUrl, image.format);
+        if (image.dataUrl) {
+          await uploadDocument(image.dataUrl, image.format || 'jpeg');
+        }
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to access camera',
+          variant: 'destructive'
+        });
       }
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to access camera',
-        variant: 'destructive'
-      });
+    } else {
+      // Web fallback - trigger camera input
+      cameraInputRef.current?.click();
     }
+  };
+
+  const handleWebCameraCapture = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target?.result as string;
+      const format = file.type.split('/')[1] || 'jpeg';
+      await uploadDocument(dataUrl, format);
+    };
+    reader.readAsDataURL(file);
+    
+    // Reset input so same file can be selected again
+    event.target.value = '';
+  };
+
+  const handleWebGallerySelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target?.result as string;
+      const format = file.type.split('/')[1] || 'jpeg';
+      await uploadDocument(dataUrl, format);
+    };
+    reader.readAsDataURL(file);
+    
+    // Reset input so same file can be selected again
+    event.target.value = '';
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -351,6 +399,23 @@ export const DocumentWallet = () => {
                 </label>
               </Button>
             </div>
+            
+            {/* Hidden inputs for web camera/gallery fallback */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleWebCameraCapture}
+            />
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleWebGallerySelect}
+            />
           </div>
 
           {/* Documents List */}
