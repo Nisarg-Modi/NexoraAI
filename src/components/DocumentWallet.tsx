@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
-import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, X } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -353,14 +353,26 @@ export const DocumentWallet = () => {
 
       setOcrResult({ docId: doc.id, text: data.extractedText });
 
-      // Auto-save extracted text to document notes
+      // Auto-save extracted text to document notes (replace old OCR if exists)
+      let updatedNotes: string;
+      const ocrMarker = '--- OCR Extracted Text ---';
+      
+      if (doc.notes?.includes(ocrMarker)) {
+        // Replace existing OCR text
+        const beforeOcr = doc.notes.split(ocrMarker)[0].trim();
+        updatedNotes = beforeOcr 
+          ? `${beforeOcr}\n\n${ocrMarker}\n${data.extractedText}`
+          : `${ocrMarker}\n${data.extractedText}`;
+      } else {
+        // Add new OCR text
+        updatedNotes = doc.notes 
+          ? `${doc.notes}\n\n${ocrMarker}\n${data.extractedText}`
+          : `${ocrMarker}\n${data.extractedText}`;
+      }
+
       const { error: updateError } = await supabase
         .from('user_documents')
-        .update({ 
-          notes: doc.notes 
-            ? `${doc.notes}\n\n--- OCR Extracted Text ---\n${data.extractedText}`
-            : `--- OCR Extracted Text ---\n${data.extractedText}`
-        })
+        .update({ notes: updatedNotes })
         .eq('id', doc.id);
 
       if (updateError) {
@@ -370,9 +382,10 @@ export const DocumentWallet = () => {
         await fetchDocuments();
       }
       
+      const isRescan = doc.notes?.includes(ocrMarker);
       toast({
-        title: 'OCR Complete',
-        description: 'Text extracted and saved to document notes'
+        title: isRescan ? 'OCR Updated' : 'OCR Complete',
+        description: isRescan ? 'Document re-scanned and text updated' : 'Text extracted and saved to document notes'
       });
     } catch (error) {
       console.error('Error scanning document:', error);
@@ -545,10 +558,12 @@ export const DocumentWallet = () => {
                               variant="ghost"
                               onClick={() => scanDocumentOCR(doc)}
                               disabled={ocrScanning === doc.id}
-                              title="Extract text (OCR)"
+                              title={doc.notes?.includes('--- OCR Extracted Text ---') ? 'Re-scan document (OCR)' : 'Extract text (OCR)'}
                             >
                               {ocrScanning === doc.id ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : doc.notes?.includes('--- OCR Extracted Text ---') ? (
+                                <RefreshCw className="w-4 h-4" />
                               ) : (
                                 <ScanText className="w-4 h-4" />
                               )}
