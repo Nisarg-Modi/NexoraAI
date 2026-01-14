@@ -352,10 +352,27 @@ export const DocumentWallet = () => {
       }
 
       setOcrResult({ docId: doc.id, text: data.extractedText });
+
+      // Auto-save extracted text to document notes
+      const { error: updateError } = await supabase
+        .from('user_documents')
+        .update({ 
+          notes: doc.notes 
+            ? `${doc.notes}\n\n--- OCR Extracted Text ---\n${data.extractedText}`
+            : `--- OCR Extracted Text ---\n${data.extractedText}`
+        })
+        .eq('id', doc.id);
+
+      if (updateError) {
+        console.error('Error saving OCR to notes:', updateError);
+      } else {
+        // Refresh documents to show updated notes
+        await fetchDocuments();
+      }
       
       toast({
         title: 'OCR Complete',
-        description: 'Text extracted successfully from document'
+        description: 'Text extracted and saved to document notes'
       });
     } catch (error) {
       console.error('Error scanning document:', error);
