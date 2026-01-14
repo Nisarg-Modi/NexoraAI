@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
-import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,8 @@ export const DocumentWallet = () => {
   const [isEmergency, setIsEmergency] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
+  const [ocrScanning, setOcrScanning] = useState<string | null>(null);
+  const [ocrResult, setOcrResult] = useState<{ docId: string; text: string } | null>(null);
   
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -315,6 +317,68 @@ export const DocumentWallet = () => {
     return <FileText className="w-5 h-5" />;
   };
 
+  const scanDocumentOCR = async (doc: Document) => {
+    if (!doc.file_type.startsWith('image/')) {
+      toast({
+        title: 'Not supported',
+        description: 'OCR scanning is only available for image documents',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setOcrScanning(doc.id);
+    try {
+      // Get signed URL for the document
+      const { data: urlData } = await supabase.storage
+        .from('documents')
+        .createSignedUrl(doc.file_path, 300);
+
+      if (!urlData?.signedUrl) {
+        throw new Error('Failed to get document URL');
+      }
+
+      // Call the OCR edge function
+      const { data, error } = await supabase.functions.invoke('document-ocr', {
+        body: { imageUrl: urlData.signedUrl }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      setOcrResult({ docId: doc.id, text: data.extractedText });
+      
+      toast({
+        title: 'OCR Complete',
+        description: 'Text extracted successfully from document'
+      });
+    } catch (error) {
+      console.error('Error scanning document:', error);
+      toast({
+        title: 'OCR Failed',
+        description: error instanceof Error ? error.message : 'Failed to extract text from document',
+        variant: 'destructive'
+      });
+    } finally {
+      setOcrScanning(null);
+    }
+  };
+
+  const copyOcrText = async () => {
+    if (ocrResult?.text) {
+      await navigator.clipboard.writeText(ocrResult.text);
+      toast({
+        title: 'Copied',
+        description: 'Extracted text copied to clipboard'
+      });
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -458,6 +522,21 @@ export const DocumentWallet = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
+                          {doc.file_type.startsWith('image/') && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => scanDocumentOCR(doc)}
+                              disabled={ocrScanning === doc.id}
+                              title="Extract text (OCR)"
+                            >
+                              {ocrScanning === doc.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <ScanText className="w-4 h-4" />
+                              )}
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="ghost"
@@ -501,6 +580,31 @@ export const DocumentWallet = () => {
             {previewUrl && previewDoc?.file_type === 'application/pdf' && (
               <iframe src={previewUrl} className="w-full h-[600px] rounded-lg" />
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* OCR Result Dialog */}
+      <Dialog open={!!ocrResult} onOpenChange={() => setOcrResult(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ScanText className="w-5 h-5" />
+              Extracted Text
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-4 space-y-4">
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={copyOcrText}>
+                <Copy className="w-4 h-4 mr-2" />
+                Copy Text
+              </Button>
+            </div>
+            <ScrollArea className="h-[400px] rounded-lg border bg-muted/50 p-4">
+              <pre className="whitespace-pre-wrap text-sm font-mono">
+                {ocrResult?.text}
+              </pre>
+            </ScrollArea>
           </div>
         </DialogContent>
       </Dialog>
