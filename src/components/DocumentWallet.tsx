@@ -15,6 +15,20 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
+interface StructuredOcrData {
+  document_type: string;
+  full_name: string | null;
+  date_of_birth: string | null;
+  id_number: string | null;
+  address: string | null;
+  expiry_date: string | null;
+  issue_date: string | null;
+  nationality: string | null;
+  gender: string | null;
+  additional_fields: Record<string, string>;
+  raw_text: string;
+}
+
 interface Document {
   id: string;
   file_name: string;
@@ -25,6 +39,13 @@ interface Document {
   is_emergency_accessible: boolean;
   notes: string | null;
   created_at: string;
+  ocr_data?: StructuredOcrData | null;
+  extracted_name?: string | null;
+  extracted_dob?: string | null;
+  extracted_id_number?: string | null;
+  extracted_address?: string | null;
+  extracted_expiry_date?: string | null;
+  ocr_scanned_at?: string | null;
 }
 
 export const DocumentWallet = () => {
@@ -38,7 +59,7 @@ export const DocumentWallet = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
   const [ocrScanning, setOcrScanning] = useState<string | null>(null);
-  const [ocrResult, setOcrResult] = useState<{ docId: string; text: string } | null>(null);
+  const [ocrResult, setOcrResult] = useState<{ docId: string; text: string; structuredData?: StructuredOcrData } | null>(null);
   
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -70,7 +91,12 @@ export const DocumentWallet = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setDocuments(data || []);
+      // Cast the data to our Document type, handling the JSON field
+      const typedDocs = (data || []).map(doc => ({
+        ...doc,
+        ocr_data: doc.ocr_data as unknown as StructuredOcrData | null
+      }));
+      setDocuments(typedDocs);
     } catch (error) {
       console.error('Error fetching documents:', error);
       toast({
@@ -351,7 +377,8 @@ export const DocumentWallet = () => {
         throw new Error(data.error);
       }
 
-      setOcrResult({ docId: doc.id, text: data.extractedText });
+      const structuredData = data.structuredData as StructuredOcrData | undefined;
+      setOcrResult({ docId: doc.id, text: data.extractedText, structuredData });
 
       // Auto-save extracted text to document notes (replace old OCR if exists)
       let updatedNotes: string;
@@ -370,22 +397,49 @@ export const DocumentWallet = () => {
           : `${ocrMarker}\n${data.extractedText}`;
       }
 
+      // Parse dates for database storage
+      const parseDate = (dateStr: string | null | undefined): string | null => {
+        if (!dateStr) return null;
+        // Try to parse YYYY-MM-DD format
+        const match = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (match) return dateStr;
+        // Try other common formats
+        try {
+          const date = new Date(dateStr);
+          if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0];
+          }
+        } catch {
+          // Ignore parsing errors
+        }
+        return null;
+      };
+
       const { error: updateError } = await supabase
         .from('user_documents')
-        .update({ notes: updatedNotes })
+        .update({ 
+          notes: updatedNotes,
+          ocr_data: structuredData ? JSON.parse(JSON.stringify(structuredData)) : null,
+          extracted_name: structuredData?.full_name || null,
+          extracted_dob: parseDate(structuredData?.date_of_birth),
+          extracted_id_number: structuredData?.id_number || null,
+          extracted_address: structuredData?.address || null,
+          extracted_expiry_date: parseDate(structuredData?.expiry_date),
+          ocr_scanned_at: new Date().toISOString()
+        })
         .eq('id', doc.id);
 
       if (updateError) {
-        console.error('Error saving OCR to notes:', updateError);
+        console.error('Error saving OCR to database:', updateError);
       } else {
-        // Refresh documents to show updated notes
+        // Refresh documents to show updated data
         await fetchDocuments();
       }
       
       const isRescan = doc.notes?.includes(ocrMarker);
       toast({
         title: isRescan ? 'OCR Updated' : 'OCR Complete',
-        description: isRescan ? 'Document re-scanned and text updated' : 'Text extracted and saved to document notes'
+        description: `Extracted ${structuredData?.document_type || 'document'} data successfully`
       });
     } catch (error) {
       console.error('Error scanning document:', error);
@@ -525,22 +579,47 @@ export const DocumentWallet = () => {
                           {getCategoryIcon(doc.document_category)}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-medium truncate">{doc.file_name}</p>
+                              <p className="font-medium truncate">
+                                {doc.extracted_name || doc.file_name}
+                              </p>
                               {doc.is_emergency_accessible && (
                                 <Badge variant="destructive" className="text-xs">
                                   <AlertCircle className="w-3 h-3 mr-1" />
                                   Emergency
                                 </Badge>
                               )}
+                              {doc.ocr_data && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {doc.ocr_data.document_type}
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-sm text-muted-foreground capitalize">
                               {doc.document_category.replace('_', ' ')}
                             </p>
-                            {doc.notes && (
-                              <p className="text-sm text-muted-foreground mt-1">{doc.notes}</p>
+                            {/* Show extracted fields if available */}
+                            {(doc.extracted_id_number || doc.extracted_dob) && (
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {doc.extracted_id_number && (
+                                  <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                                    ID: {doc.extracted_id_number}
+                                  </span>
+                                )}
+                                {doc.extracted_dob && (
+                                  <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                                    DOB: {doc.extracted_dob}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {doc.notes && !doc.notes.includes('--- OCR Extracted Text ---') && (
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{doc.notes}</p>
                             )}
                             <p className="text-xs text-muted-foreground mt-1">
                               {new Date(doc.created_at).toLocaleDateString()}
+                              {doc.ocr_scanned_at && (
+                                <span className="ml-2">• Scanned {new Date(doc.ocr_scanned_at).toLocaleDateString()}</span>
+                              )}
                             </p>
                           </div>
                         </div>
@@ -622,19 +701,86 @@ export const DocumentWallet = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ScanText className="w-5 h-5" />
-              Extracted Text
+              Extracted Data
+              {ocrResult?.structuredData?.document_type && (
+                <Badge variant="secondary" className="ml-2">
+                  {ocrResult.structuredData.document_type}
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
           <div className="mt-4 space-y-4">
+            {/* Structured Fields */}
+            {ocrResult?.structuredData && (
+              <div className="grid grid-cols-2 gap-3">
+                {ocrResult.structuredData.full_name && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <Label className="text-xs text-muted-foreground">Full Name</Label>
+                    <p className="font-medium">{ocrResult.structuredData.full_name}</p>
+                  </div>
+                )}
+                {ocrResult.structuredData.date_of_birth && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <Label className="text-xs text-muted-foreground">Date of Birth</Label>
+                    <p className="font-medium">{ocrResult.structuredData.date_of_birth}</p>
+                  </div>
+                )}
+                {ocrResult.structuredData.id_number && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <Label className="text-xs text-muted-foreground">ID Number</Label>
+                    <p className="font-medium">{ocrResult.structuredData.id_number}</p>
+                  </div>
+                )}
+                {ocrResult.structuredData.nationality && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <Label className="text-xs text-muted-foreground">Nationality</Label>
+                    <p className="font-medium">{ocrResult.structuredData.nationality}</p>
+                  </div>
+                )}
+                {ocrResult.structuredData.gender && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <Label className="text-xs text-muted-foreground">Gender</Label>
+                    <p className="font-medium">{ocrResult.structuredData.gender}</p>
+                  </div>
+                )}
+                {ocrResult.structuredData.address && (
+                  <div className="bg-muted/50 rounded-lg p-3 col-span-2">
+                    <Label className="text-xs text-muted-foreground">Address</Label>
+                    <p className="font-medium">{ocrResult.structuredData.address}</p>
+                  </div>
+                )}
+                {ocrResult.structuredData.issue_date && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <Label className="text-xs text-muted-foreground">Issue Date</Label>
+                    <p className="font-medium">{ocrResult.structuredData.issue_date}</p>
+                  </div>
+                )}
+                {ocrResult.structuredData.expiry_date && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <Label className="text-xs text-muted-foreground">Expiry Date</Label>
+                    <p className="font-medium">{ocrResult.structuredData.expiry_date}</p>
+                  </div>
+                )}
+                {ocrResult.structuredData.additional_fields && 
+                  Object.entries(ocrResult.structuredData.additional_fields).map(([key, value]) => (
+                    <div key={key} className="bg-muted/50 rounded-lg p-3">
+                      <Label className="text-xs text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
+                      <p className="font-medium">{value}</p>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
             <div className="flex justify-end">
               <Button variant="outline" size="sm" onClick={copyOcrText}>
                 <Copy className="w-4 h-4 mr-2" />
-                Copy Text
+                Copy Raw Text
               </Button>
             </div>
-            <ScrollArea className="h-[400px] rounded-lg border bg-muted/50 p-4">
-              <pre className="whitespace-pre-wrap text-sm font-mono">
-                {ocrResult?.text}
+            <ScrollArea className="h-[200px] rounded-lg border bg-muted/50 p-4">
+              <pre className="whitespace-pre-wrap text-sm font-mono text-muted-foreground">
+                {ocrResult?.structuredData?.raw_text || ocrResult?.text}
               </pre>
             </ScrollArea>
           </div>

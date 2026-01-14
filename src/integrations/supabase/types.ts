@@ -1250,6 +1250,11 @@ export type Database = {
         Row: {
           created_at: string | null
           document_category: string
+          extracted_address: string | null
+          extracted_dob: string | null
+          extracted_expiry_date: string | null
+          extracted_id_number: string | null
+          extracted_name: string | null
           file_name: string
           file_path: string
           file_size: number
@@ -1257,12 +1262,19 @@ export type Database = {
           id: string
           is_emergency_accessible: boolean | null
           notes: string | null
+          ocr_data: Json | null
+          ocr_scanned_at: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
           created_at?: string | null
           document_category: string
+          extracted_address?: string | null
+          extracted_dob?: string | null
+          extracted_expiry_date?: string | null
+          extracted_id_number?: string | null
+          extracted_name?: string | null
           file_name: string
           file_path: string
           file_size: number
@@ -1270,12 +1282,19 @@ export type Database = {
           id?: string
           is_emergency_accessible?: boolean | null
           notes?: string | null
+          ocr_data?: Json | null
+          ocr_scanned_at?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
           created_at?: string | null
           document_category?: string
+          extracted_address?: string | null
+          extracted_dob?: string | null
+          extracted_expiry_date?: string | null
+          extracted_id_number?: string | null
+          extracted_name?: string | null
           file_name?: string
           file_path?: string
           file_size?: number
@@ -1283,6 +1302,8 @@ export type Database = {
           id?: string
           is_emergency_accessible?: boolean | null
           notes?: string | null
+          ocr_data?: Json | null
+          ocr_scanned_at?: string | null
           updated_at?: string | null
           user_id?: string
         }
