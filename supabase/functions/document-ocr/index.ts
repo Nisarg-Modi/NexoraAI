@@ -5,6 +5,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface ExtractedFields {
+  document_type: string;
+  full_name: string | null;
+  date_of_birth: string | null;
+  id_number: string | null;
+  address: string | null;
+  expiry_date: string | null;
+  issue_date: string | null;
+  nationality: string | null;
+  gender: string | null;
+  additional_fields: Record<string, string>;
+  raw_text: string;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -29,7 +43,6 @@ serve(async (req) => {
     // Build the image content for the vision model
     let imageContent;
     if (imageBase64) {
-      // Extract the base64 data and mime type
       const matches = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
       if (matches) {
         const mimeType = matches[1];
@@ -41,7 +54,6 @@ serve(async (req) => {
           }
         };
       } else {
-        // Assume it's raw base64 without data URL prefix
         imageContent = {
           type: "image_url",
           image_url: {
@@ -58,7 +70,7 @@ serve(async (req) => {
       };
     }
 
-    console.log('Sending request to Lovable AI for OCR...');
+    console.log('Sending request to Lovable AI for structured OCR extraction...');
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -67,41 +79,92 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-3-flash-preview',
         messages: [
           {
             role: 'system',
-            content: `You are an expert OCR (Optical Character Recognition) assistant. Your task is to extract ALL text visible in the image.
-
-For ID cards, passports, driver's licenses, and similar documents, extract and structure the information clearly including:
-- Full name
-- Date of birth
-- Document number/ID number
-- Issue date and expiry date
-- Address (if visible)
-- Any other relevant fields
-
-For other documents, extract all visible text maintaining the original structure as much as possible.
-
-Format your response as follows:
-1. First, provide a "DOCUMENT TYPE" line identifying what kind of document it is
-2. Then list "EXTRACTED TEXT" with all the text found, organized by field if applicable
-3. Finally, provide "RAW TEXT" which is just all text found without formatting
-
-Be thorough and accurate. If text is partially obscured or unclear, note it with [unclear] or [partially visible].`
+            content: `You are an expert OCR (Optical Character Recognition) assistant specialized in extracting structured data from ID documents, passports, driver's licenses, and other official documents. Extract all visible text and identify specific fields accurately. If a field is not visible or unclear, return null for that field.`
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: 'Please extract all text from this document image. Identify the document type and structure the information appropriately.'
+                text: 'Extract all text and structured fields from this document image. Identify the document type and extract specific fields like name, date of birth, ID number, address, etc.'
               },
               imageContent
             ]
           }
         ],
-        max_tokens: 2000,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "extract_document_data",
+              description: "Extract structured data from a document image including all identifiable fields and raw text.",
+              parameters: {
+                type: "object",
+                properties: {
+                  document_type: {
+                    type: "string",
+                    description: "Type of document (e.g., 'ID Card', 'Passport', 'Driver License', 'Medical Card', 'Insurance Card', 'Other')"
+                  },
+                  full_name: {
+                    type: "string",
+                    nullable: true,
+                    description: "Full name as shown on the document"
+                  },
+                  date_of_birth: {
+                    type: "string",
+                    nullable: true,
+                    description: "Date of birth in YYYY-MM-DD format if possible, otherwise as shown"
+                  },
+                  id_number: {
+                    type: "string",
+                    nullable: true,
+                    description: "Document ID number, license number, passport number, or similar identifier"
+                  },
+                  address: {
+                    type: "string",
+                    nullable: true,
+                    description: "Full address if visible"
+                  },
+                  expiry_date: {
+                    type: "string",
+                    nullable: true,
+                    description: "Document expiry date in YYYY-MM-DD format if possible"
+                  },
+                  issue_date: {
+                    type: "string",
+                    nullable: true,
+                    description: "Document issue date in YYYY-MM-DD format if possible"
+                  },
+                  nationality: {
+                    type: "string",
+                    nullable: true,
+                    description: "Nationality or citizenship if shown"
+                  },
+                  gender: {
+                    type: "string",
+                    nullable: true,
+                    description: "Gender if shown (M, F, or as displayed)"
+                  },
+                  additional_fields: {
+                    type: "object",
+                    description: "Any other identified fields as key-value pairs (e.g., blood type, class, restrictions, employer)"
+                  },
+                  raw_text: {
+                    type: "string",
+                    description: "All raw text extracted from the document"
+                  }
+                },
+                required: ["document_type", "raw_text"],
+                additionalProperties: false
+              }
+            }
+          }
+        ],
+        tool_choice: { type: "function", function: { name: "extract_document_data" } }
       }),
     });
 
@@ -126,19 +189,45 @@ Be thorough and accurate. If text is partially obscured or unclear, note it with
     }
 
     const data = await response.json();
-    const extractedText = data.choices?.[0]?.message?.content;
-
-    if (!extractedText) {
-      throw new Error('No text extracted from the image');
+    
+    // Extract the tool call result
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall || toolCall.function.name !== 'extract_document_data') {
+      throw new Error('Failed to extract structured data from document');
     }
 
-    console.log('OCR extraction successful');
+    const extractedFields: ExtractedFields = JSON.parse(toolCall.function.arguments);
+
+    console.log('Structured OCR extraction successful:', extractedFields.document_type);
+
+    // Format the extracted text for display
+    let formattedText = `DOCUMENT TYPE: ${extractedFields.document_type}\n\n`;
+    formattedText += `EXTRACTED FIELDS:\n`;
+    
+    if (extractedFields.full_name) formattedText += `• Name: ${extractedFields.full_name}\n`;
+    if (extractedFields.date_of_birth) formattedText += `• Date of Birth: ${extractedFields.date_of_birth}\n`;
+    if (extractedFields.id_number) formattedText += `• ID Number: ${extractedFields.id_number}\n`;
+    if (extractedFields.address) formattedText += `• Address: ${extractedFields.address}\n`;
+    if (extractedFields.expiry_date) formattedText += `• Expiry Date: ${extractedFields.expiry_date}\n`;
+    if (extractedFields.issue_date) formattedText += `• Issue Date: ${extractedFields.issue_date}\n`;
+    if (extractedFields.nationality) formattedText += `• Nationality: ${extractedFields.nationality}\n`;
+    if (extractedFields.gender) formattedText += `• Gender: ${extractedFields.gender}\n`;
+    
+    if (extractedFields.additional_fields && Object.keys(extractedFields.additional_fields).length > 0) {
+      formattedText += `\nADDITIONAL FIELDS:\n`;
+      for (const [key, value] of Object.entries(extractedFields.additional_fields)) {
+        formattedText += `• ${key}: ${value}\n`;
+      }
+    }
+    
+    formattedText += `\nRAW TEXT:\n${extractedFields.raw_text}`;
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        extractedText,
-        model: 'google/gemini-2.5-flash'
+        extractedText: formattedText,
+        structuredData: extractedFields,
+        model: 'google/gemini-3-flash-preview'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
