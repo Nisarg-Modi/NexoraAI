@@ -56,3 +56,6 @@ verify_jwt = true
 
 [functions.document-ocr]
 verify_jwt = true
+
+[functions.check-document-expiry]
+verify_jwt = false
