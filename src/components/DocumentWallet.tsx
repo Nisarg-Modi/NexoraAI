@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
-import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,6 +60,7 @@ export const DocumentWallet = () => {
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
   const [ocrScanning, setOcrScanning] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<{ docId: string; text: string; structuredData?: StructuredOcrData } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -343,6 +344,47 @@ export const DocumentWallet = () => {
     return <FileText className="w-5 h-5" />;
   };
 
+  // Filter documents based on search query
+  const filteredDocuments = documents.filter(doc => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    
+    // Search in file name
+    if (doc.file_name.toLowerCase().includes(query)) return true;
+    
+    // Search in extracted name
+    if (doc.extracted_name?.toLowerCase().includes(query)) return true;
+    
+    // Search in ID number
+    if (doc.extracted_id_number?.toLowerCase().includes(query)) return true;
+    
+    // Search in address
+    if (doc.extracted_address?.toLowerCase().includes(query)) return true;
+    
+    // Search in notes (includes OCR text)
+    if (doc.notes?.toLowerCase().includes(query)) return true;
+    
+    // Search in document category
+    if (doc.document_category.toLowerCase().includes(query)) return true;
+    
+    // Search in OCR structured data
+    if (doc.ocr_data) {
+      if (doc.ocr_data.document_type?.toLowerCase().includes(query)) return true;
+      if (doc.ocr_data.full_name?.toLowerCase().includes(query)) return true;
+      if (doc.ocr_data.nationality?.toLowerCase().includes(query)) return true;
+      if (doc.ocr_data.raw_text?.toLowerCase().includes(query)) return true;
+      // Search in additional fields
+      if (doc.ocr_data.additional_fields) {
+        for (const value of Object.values(doc.ocr_data.additional_fields)) {
+          if (value?.toLowerCase().includes(query)) return true;
+        }
+      }
+    }
+    
+    return false;
+  });
+
   const scanDocumentOCR = async (doc: Document) => {
     if (!doc.file_type.startsWith('image/')) {
       toast({
@@ -567,11 +609,42 @@ export const DocumentWallet = () => {
           </div>
 
           {/* Documents List */}
-          <div className="space-y-2">
-            <h3 className="font-semibold">My Documents ({documents.length})</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">My Documents ({documents.length})</h3>
+            </div>
+            
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search by name, ID number, or text..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                  onClick={() => setSearchQuery('')}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+            
+            {searchQuery && (
+              <p className="text-sm text-muted-foreground">
+                Found {filteredDocuments.length} document{filteredDocuments.length !== 1 ? 's' : ''} matching "{searchQuery}"
+              </p>
+            )}
+            
             <ScrollArea className="h-[400px]">
               <div className="space-y-2">
-                {documents.map((doc) => (
+                {filteredDocuments.map((doc) => (
                   <Card key={doc.id}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-4">
@@ -667,6 +740,11 @@ export const DocumentWallet = () => {
                     </CardContent>
                   </Card>
                 ))}
+                {filteredDocuments.length === 0 && documents.length > 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No documents match your search.
+                  </div>
+                )}
                 {documents.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     No documents yet. Upload your first document above.
