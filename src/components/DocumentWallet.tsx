@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
-import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X, Clock, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -344,6 +344,51 @@ export const DocumentWallet = () => {
     return <FileText className="w-5 h-5" />;
   };
 
+  // Calculate days until expiry
+  const getExpiryStatus = (expiryDate: string | null | undefined): { 
+    daysUntil: number | null; 
+    status: 'expired' | 'critical' | 'warning' | 'soon' | 'ok' | null;
+    label: string | null;
+  } => {
+    if (!expiryDate) return { daysUntil: null, status: null, label: null };
+    
+    const expiry = new Date(expiryDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    expiry.setHours(0, 0, 0, 0);
+    
+    const diffTime = expiry.getTime() - today.getTime();
+    const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (daysUntil < 0) {
+      return { daysUntil, status: 'expired', label: 'Expired' };
+    } else if (daysUntil <= 30) {
+      return { daysUntil, status: 'critical', label: `Expires in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}` };
+    } else if (daysUntil <= 60) {
+      return { daysUntil, status: 'warning', label: `Expires in ${daysUntil} days` };
+    } else if (daysUntil <= 90) {
+      return { daysUntil, status: 'soon', label: `Expires in ${daysUntil} days` };
+    }
+    
+    return { daysUntil, status: 'ok', label: null };
+  };
+
+  // Get documents with expiry alerts
+  const getExpiringDocuments = () => {
+    return documents
+      .filter(doc => {
+        const { status } = getExpiryStatus(doc.extracted_expiry_date);
+        return status === 'expired' || status === 'critical' || status === 'warning' || status === 'soon';
+      })
+      .sort((a, b) => {
+        const aExpiry = a.extracted_expiry_date ? new Date(a.extracted_expiry_date).getTime() : Infinity;
+        const bExpiry = b.extracted_expiry_date ? new Date(b.extracted_expiry_date).getTime() : Infinity;
+        return aExpiry - bExpiry;
+      });
+  };
+
+  const expiringDocuments = getExpiringDocuments();
+
   // Filter documents based on search query
   const filteredDocuments = documents.filter(doc => {
     if (!searchQuery.trim()) return true;
@@ -608,6 +653,50 @@ export const DocumentWallet = () => {
             />
           </div>
 
+          {/* Expiry Alerts Section */}
+          {expiringDocuments.length > 0 && (
+            <Card className="border-destructive/50 bg-destructive/5">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="w-5 h-5 text-destructive" />
+                  <h4 className="font-semibold text-destructive">Document Expiry Alerts</h4>
+                </div>
+                <div className="space-y-2">
+                  {expiringDocuments.map(doc => {
+                    const { status, label, daysUntil } = getExpiryStatus(doc.extracted_expiry_date);
+                    return (
+                      <div 
+                        key={`expiry-${doc.id}`}
+                        className="flex items-center justify-between p-2 rounded-lg bg-background"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Clock className={`w-4 h-4 ${
+                            status === 'expired' ? 'text-destructive' :
+                            status === 'critical' ? 'text-destructive' :
+                            status === 'warning' ? 'text-orange-500' :
+                            'text-yellow-500'
+                          }`} />
+                          <span className="font-medium text-sm">
+                            {doc.extracted_name || doc.file_name}
+                          </span>
+                        </div>
+                        <Badge 
+                          variant={status === 'expired' || status === 'critical' ? 'destructive' : 'secondary'}
+                          className={`text-xs ${
+                            status === 'warning' ? 'bg-orange-500/10 text-orange-600 border-orange-500/30' :
+                            status === 'soon' ? 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30' : ''
+                          }`}
+                        >
+                          {label}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Documents List */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -666,12 +755,31 @@ export const DocumentWallet = () => {
                                   {doc.ocr_data.document_type}
                                 </Badge>
                               )}
+                              {/* Expiry badge in document list */}
+                              {(() => {
+                                const { status, label } = getExpiryStatus(doc.extracted_expiry_date);
+                                if (status && status !== 'ok') {
+                                  return (
+                                    <Badge 
+                                      variant={status === 'expired' || status === 'critical' ? 'destructive' : 'secondary'}
+                                      className={`text-xs ${
+                                        status === 'warning' ? 'bg-orange-500/10 text-orange-600 border-orange-500/30' :
+                                        status === 'soon' ? 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30' : ''
+                                      }`}
+                                    >
+                                      <Clock className="w-3 h-3 mr-1" />
+                                      {label}
+                                    </Badge>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </div>
                             <p className="text-sm text-muted-foreground capitalize">
                               {doc.document_category.replace('_', ' ')}
                             </p>
                             {/* Show extracted fields if available */}
-                            {(doc.extracted_id_number || doc.extracted_dob) && (
+                            {(doc.extracted_id_number || doc.extracted_dob || doc.extracted_expiry_date) && (
                               <div className="flex flex-wrap gap-2 mt-1">
                                 {doc.extracted_id_number && (
                                   <span className="text-xs bg-muted px-2 py-0.5 rounded">
@@ -681,6 +789,11 @@ export const DocumentWallet = () => {
                                 {doc.extracted_dob && (
                                   <span className="text-xs bg-muted px-2 py-0.5 rounded">
                                     DOB: {doc.extracted_dob}
+                                  </span>
+                                )}
+                                {doc.extracted_expiry_date && (
+                                  <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                                    Expires: {doc.extracted_expiry_date}
                                   </span>
                                 )}
                               </div>
