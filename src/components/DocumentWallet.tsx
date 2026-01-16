@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
-import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X, Clock, AlertTriangle, Calendar, Pencil } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X, Clock, AlertTriangle, Calendar, Pencil, Share2, Link, Check } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,6 +64,12 @@ export const DocumentWallet = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingExpiryDoc, setEditingExpiryDoc] = useState<Document | null>(null);
   const [editExpiryDate, setEditExpiryDate] = useState('');
+  const [sharingDoc, setSharingDoc] = useState<Document | null>(null);
+  const [shareExpiry, setShareExpiry] = useState('24');
+  const [shareMaxAccess, setShareMaxAccess] = useState('');
+  const [generatingShare, setGeneratingShare] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
   
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -618,6 +624,79 @@ export const DocumentWallet = () => {
     }
   };
 
+  const openShareDialog = (doc: Document) => {
+    setSharingDoc(doc);
+    setShareExpiry('24');
+    setShareMaxAccess('');
+    setShareLink(null);
+    setCopiedLink(false);
+  };
+
+  const generateShareLink = async () => {
+    if (!sharingDoc) return;
+
+    setGeneratingShare(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Generate a secure random token
+      const tokenArray = new Uint8Array(32);
+      crypto.getRandomValues(tokenArray);
+      const shareToken = Array.from(tokenArray)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      // Calculate expiry date
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + parseInt(shareExpiry));
+
+      // Insert share link record
+      const { error } = await supabase
+        .from('document_share_links')
+        .insert({
+          document_id: sharingDoc.id,
+          user_id: user.id,
+          share_token: shareToken,
+          expires_at: expiresAt.toISOString(),
+          max_access_count: shareMaxAccess ? parseInt(shareMaxAccess) : null,
+        });
+
+      if (error) throw error;
+
+      // Generate the share URL
+      const baseUrl = window.location.origin;
+      const link = `${baseUrl}/shared-document?token=${shareToken}`;
+      setShareLink(link);
+
+      toast({
+        title: 'Share Link Created',
+        description: `Link expires in ${shareExpiry} hours`
+      });
+    } catch (error) {
+      console.error('Error generating share link:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate share link',
+        variant: 'destructive'
+      });
+    } finally {
+      setGeneratingShare(false);
+    }
+  };
+
+  const copyShareLink = async () => {
+    if (shareLink) {
+      await navigator.clipboard.writeText(shareLink);
+      setCopiedLink(true);
+      toast({
+        title: 'Copied',
+        description: 'Share link copied to clipboard'
+      });
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -929,6 +1008,14 @@ export const DocumentWallet = () => {
                           <Button
                             size="sm"
                             variant="ghost"
+                            onClick={() => openShareDialog(doc)}
+                            title="Share document"
+                          >
+                            <Share2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
                             onClick={() => downloadDocument(doc)}
                           >
                             <Download className="w-4 h-4" />
@@ -1109,6 +1196,111 @@ export const DocumentWallet = () => {
                 </Button>
               </div>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Document Dialog */}
+      <Dialog open={!!sharingDoc} onOpenChange={() => { setSharingDoc(null); setShareLink(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="w-5 h-5" />
+              Share Document
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">
+                Document: <span className="font-medium text-foreground">{sharingDoc?.extracted_name || sharingDoc?.file_name}</span>
+              </p>
+            </div>
+
+            {!shareLink ? (
+              <>
+                <div>
+                  <Label>Link Expires In</Label>
+                  <Select value={shareExpiry} onValueChange={setShareExpiry}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 hour</SelectItem>
+                      <SelectItem value="6">6 hours</SelectItem>
+                      <SelectItem value="24">24 hours</SelectItem>
+                      <SelectItem value="72">3 days</SelectItem>
+                      <SelectItem value="168">7 days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Max Access Count (Optional)</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="100"
+                    placeholder="Unlimited"
+                    value={shareMaxAccess}
+                    onChange={(e) => setShareMaxAccess(e.target.value)}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Leave empty for unlimited access
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setSharingDoc(null)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={generateShareLink} disabled={generatingShare}>
+                    {generatingShare ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Link className="w-4 h-4 mr-2" />
+                        Generate Link
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Share Link:</p>
+                  <p className="text-sm font-mono break-all">{shareLink}</p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button onClick={copyShareLink} className="flex-1">
+                    {copiedLink ? (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy Link
+                      </>
+                    )}
+                  </Button>
+                  <Button variant="outline" onClick={() => { setSharingDoc(null); setShareLink(null); }}>
+                    Done
+                  </Button>
+                </div>
+
+                <p className="text-xs text-center text-muted-foreground">
+                  This link will expire in {shareExpiry} hour{parseInt(shareExpiry) !== 1 ? 's' : ''}.
+                  {shareMaxAccess && ` Limited to ${shareMaxAccess} access${parseInt(shareMaxAccess) !== 1 ? 'es' : ''}.`}
+                </p>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

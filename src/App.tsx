@@ -13,6 +13,7 @@ import Meetings from "./pages/Meetings";
 import MeetingDetails from "./pages/MeetingDetails";
 import VoiceProfiles from "./pages/VoiceProfiles";
 import PublicProfile from "./pages/PublicProfile";
+import SharedDocument from "./pages/SharedDocument";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,7 @@ const AppContent = () => {
           }
         />
         <Route path="/profile/:username" element={<PublicProfile />} />
+        <Route path="/shared-document" element={<SharedDocument />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
