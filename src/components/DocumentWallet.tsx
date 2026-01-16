@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
-import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X, Clock, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X, Clock, AlertTriangle, Calendar, Pencil } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,11 +56,14 @@ export const DocumentWallet = () => {
   const [selectedCategory, setSelectedCategory] = useState('id');
   const [notes, setNotes] = useState('');
   const [isEmergency, setIsEmergency] = useState(false);
+  const [manualExpiryDate, setManualExpiryDate] = useState('');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
   const [ocrScanning, setOcrScanning] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<{ docId: string; text: string; structuredData?: StructuredOcrData } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingExpiryDoc, setEditingExpiryDoc] = useState<Document | null>(null);
+  const [editExpiryDate, setEditExpiryDate] = useState('');
   
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -242,7 +245,8 @@ export const DocumentWallet = () => {
           file_size: blob.size,
           document_category: selectedCategory,
           is_emergency_accessible: isEmergency,
-          notes: notes || null
+          notes: notes || null,
+          extracted_expiry_date: manualExpiryDate || null
         });
 
       if (insertError) throw insertError;
@@ -255,6 +259,7 @@ export const DocumentWallet = () => {
       // Reset form
       setNotes('');
       setIsEmergency(false);
+      setManualExpiryDate('');
       await fetchDocuments();
     } catch (error) {
       console.error('Error uploading document:', error);
@@ -550,6 +555,69 @@ export const DocumentWallet = () => {
     }
   };
 
+  const openEditExpiry = (doc: Document) => {
+    setEditingExpiryDoc(doc);
+    setEditExpiryDate(doc.extracted_expiry_date || '');
+  };
+
+  const saveExpiryDate = async () => {
+    if (!editingExpiryDoc) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_documents')
+        .update({ extracted_expiry_date: editExpiryDate || null })
+        .eq('id', editingExpiryDoc.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Expiry date updated successfully'
+      });
+
+      setEditingExpiryDoc(null);
+      setEditExpiryDate('');
+      await fetchDocuments();
+    } catch (error) {
+      console.error('Error updating expiry date:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update expiry date',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const clearExpiryDate = async () => {
+    if (!editingExpiryDoc) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_documents')
+        .update({ extracted_expiry_date: null })
+        .eq('id', editingExpiryDoc.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Expiry date removed'
+      });
+
+      setEditingExpiryDoc(null);
+      setEditExpiryDate('');
+      await fetchDocuments();
+    } catch (error) {
+      console.error('Error clearing expiry date:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to clear expiry date',
+        variant: 'destructive'
+      });
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -597,6 +665,22 @@ export const DocumentWallet = () => {
                   placeholder="Add any notes about this document..."
                   rows={2}
                 />
+              </div>
+
+              <div>
+                <Label>Expiry Date (Optional)</Label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="date"
+                    value={manualExpiryDate}
+                    onChange={(e) => setManualExpiryDate(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Set when this document expires (can also be extracted via OCR)
+                </p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -837,6 +921,14 @@ export const DocumentWallet = () => {
                           <Button
                             size="sm"
                             variant="ghost"
+                            onClick={() => openEditExpiry(doc)}
+                            title="Edit expiry date"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
                             onClick={() => downloadDocument(doc)}
                           >
                             <Download className="w-4 h-4" />
@@ -974,6 +1066,49 @@ export const DocumentWallet = () => {
                 {ocrResult?.structuredData?.raw_text || ocrResult?.text}
               </pre>
             </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Expiry Date Dialog */}
+      <Dialog open={!!editingExpiryDoc} onOpenChange={() => { setEditingExpiryDoc(null); setEditExpiryDate(''); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Edit Expiry Date
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">
+                Document: <span className="font-medium text-foreground">{editingExpiryDoc?.extracted_name || editingExpiryDoc?.file_name}</span>
+              </p>
+            </div>
+            <div>
+              <Label>Expiry Date</Label>
+              <Input
+                type="date"
+                value={editExpiryDate}
+                onChange={(e) => setEditExpiryDate(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div className="flex justify-between gap-2">
+              {editingExpiryDoc?.extracted_expiry_date && (
+                <Button variant="outline" onClick={clearExpiryDate} className="text-destructive">
+                  Remove Date
+                </Button>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <Button variant="outline" onClick={() => { setEditingExpiryDoc(null); setEditExpiryDate(''); }}>
+                  Cancel
+                </Button>
+                <Button onClick={saveExpiryDate} disabled={!editExpiryDate}>
+                  Save
+                </Button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
