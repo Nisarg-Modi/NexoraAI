@@ -517,6 +517,50 @@ export type Database = {
         }
         Relationships: []
       }
+      document_share_links: {
+        Row: {
+          accessed_count: number | null
+          created_at: string
+          document_id: string
+          expires_at: string
+          id: string
+          is_active: boolean | null
+          max_access_count: number | null
+          share_token: string
+          user_id: string
+        }
+        Insert: {
+          accessed_count?: number | null
+          created_at?: string
+          document_id: string
+          expires_at: string
+          id?: string
+          is_active?: boolean | null
+          max_access_count?: number | null
+          share_token: string
+          user_id: string
+        }
+        Update: {
+          accessed_count?: number | null
+          created_at?: string
+          document_id?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean | null
+          max_access_count?: number | null
+          share_token?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_share_links_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "user_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       login_attempts: {
         Row: {
           attempt_time: string
