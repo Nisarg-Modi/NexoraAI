@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
-import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X, Clock, AlertTriangle, Calendar, Pencil, Share2, Link, Check } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X, Clock, AlertTriangle, Calendar, Pencil, Share2, Link, Check, LinkIcon, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,18 @@ interface Document {
   ocr_scanned_at?: string | null;
 }
 
+interface ShareLink {
+  id: string;
+  document_id: string;
+  share_token: string;
+  expires_at: string;
+  max_access_count: number | null;
+  accessed_count: number | null;
+  is_active: boolean | null;
+  created_at: string;
+  document?: Document;
+}
+
 export const DocumentWallet = () => {
   const { toast } = useToast();
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -70,6 +82,10 @@ export const DocumentWallet = () => {
   const [generatingShare, setGeneratingShare] = useState(false);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [activeShareLinks, setActiveShareLinks] = useState<ShareLink[]>([]);
+  const [showActiveLinks, setShowActiveLinks] = useState(false);
+  const [loadingLinks, setLoadingLinks] = useState(false);
+  const [revokingLinkId, setRevokingLinkId] = useState<string | null>(null);
   
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -697,6 +713,104 @@ export const DocumentWallet = () => {
     }
   };
 
+  const fetchActiveShareLinks = async () => {
+    setLoadingLinks(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('document_share_links')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Attach document info to each share link
+      const linksWithDocs = (data || []).map(link => {
+        const doc = documents.find(d => d.id === link.document_id);
+        return { ...link, document: doc };
+      });
+
+      setActiveShareLinks(linksWithDocs);
+    } catch (error) {
+      console.error('Error fetching share links:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load share links',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoadingLinks(false);
+    }
+  };
+
+  const openActiveLinksDialog = async () => {
+    setShowActiveLinks(true);
+    await fetchActiveShareLinks();
+  };
+
+  const revokeShareLink = async (linkId: string) => {
+    setRevokingLinkId(linkId);
+    try {
+      const { error } = await supabase
+        .from('document_share_links')
+        .update({ is_active: false })
+        .eq('id', linkId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Link Revoked',
+        description: 'The share link has been deactivated'
+      });
+
+      // Refresh the list
+      await fetchActiveShareLinks();
+    } catch (error) {
+      console.error('Error revoking share link:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to revoke share link',
+        variant: 'destructive'
+      });
+    } finally {
+      setRevokingLinkId(null);
+    }
+  };
+
+  const copyActiveLinkToClipboard = async (token: string) => {
+    const link = `${window.location.origin}/shared-document?token=${token}`;
+    await navigator.clipboard.writeText(link);
+    toast({
+      title: 'Copied',
+      description: 'Share link copied to clipboard'
+    });
+  };
+
+  const getTimeRemaining = (expiresAt: string): string => {
+    const now = new Date();
+    const expiry = new Date(expiresAt);
+    const diffMs = expiry.getTime() - now.getTime();
+    
+    if (diffMs <= 0) return 'Expired';
+    
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffDays > 0) {
+      return `${diffDays} day${diffDays !== 1 ? 's' : ''} remaining`;
+    }
+    if (diffHours > 0) {
+      return `${diffHours} hour${diffHours !== 1 ? 's' : ''} remaining`;
+    }
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    return `${diffMins} minute${diffMins !== 1 ? 's' : ''} remaining`;
+  };
+
   if (loading) {
     return (
       <Card>
@@ -864,6 +978,10 @@ export const DocumentWallet = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">My Documents ({documents.length})</h3>
+              <Button variant="outline" size="sm" onClick={openActiveLinksDialog}>
+                <LinkIcon className="w-4 h-4 mr-2" />
+                Active Links
+              </Button>
             </div>
             
             {/* Search Input */}
@@ -1301,6 +1419,100 @@ export const DocumentWallet = () => {
                 </p>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Active Share Links Dialog */}
+      <Dialog open={showActiveLinks} onOpenChange={setShowActiveLinks}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LinkIcon className="w-5 h-5" />
+              Active Share Links
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {loadingLinks ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : activeShareLinks.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <LinkIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No active share links</p>
+                <p className="text-sm mt-1">Share a document to create a link</p>
+              </div>
+            ) : (
+              <ScrollArea className="max-h-[400px]">
+                <div className="space-y-3">
+                  {activeShareLinks.map((link) => (
+                    <Card key={link.id}>
+                      <CardContent className="p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">
+                              {link.document?.extracted_name || link.document?.file_name || 'Unknown Document'}
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              <Badge variant="secondary" className="text-xs">
+                                <Clock className="w-3 h-3 mr-1" />
+                                {getTimeRemaining(link.expires_at)}
+                              </Badge>
+                              {link.max_access_count && (
+                                <Badge variant="outline" className="text-xs">
+                                  {link.accessed_count || 0}/{link.max_access_count} uses
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Created {new Date(link.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => copyActiveLinkToClipboard(link.share_token)}
+                              title="Copy link"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => window.open(`/shared-document?token=${link.share_token}`, '_blank')}
+                              title="Open link"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => revokeShareLink(link.id)}
+                              disabled={revokingLinkId === link.id}
+                              title="Revoke link"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              {revokingLinkId === link.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => setShowActiveLinks(false)}>
+                Close
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
