@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
-import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X, Clock, AlertTriangle, Calendar, Pencil, Share2, Link, Check, LinkIcon, ExternalLink } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X, Clock, AlertTriangle, Calendar, Pencil, Share2, Link, Check, LinkIcon, ExternalLink, Filter } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,6 +74,7 @@ export const DocumentWallet = () => {
   const [ocrScanning, setOcrScanning] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<{ docId: string; text: string; structuredData?: StructuredOcrData } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [editingExpiryDoc, setEditingExpiryDoc] = useState<Document | null>(null);
   const [editExpiryDate, setEditExpiryDate] = useState('');
   const [sharingDoc, setSharingDoc] = useState<Document | null>(null);
@@ -416,8 +417,14 @@ export const DocumentWallet = () => {
 
   const expiringDocuments = getExpiringDocuments();
 
-  // Filter documents based on search query
+  // Filter documents based on search query and category
   const filteredDocuments = documents.filter(doc => {
+    // First apply category filter
+    if (categoryFilter !== 'all' && doc.document_category !== categoryFilter) {
+      return false;
+    }
+    
+    // Then apply search filter
     if (!searchQuery.trim()) return true;
     
     const query = searchQuery.toLowerCase();
@@ -456,6 +463,17 @@ export const DocumentWallet = () => {
     
     return false;
   });
+
+  // Count documents per category
+  const categoryCounts = documents.reduce((acc, doc) => {
+    acc[doc.document_category] = (acc[doc.document_category] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCategoryFilter('all');
+  };
 
   const scanDocumentOCR = async (doc: Document) => {
     if (!doc.file_type.startsWith('image/')) {
@@ -984,32 +1002,58 @@ export const DocumentWallet = () => {
               </Button>
             </div>
             
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search by name, ID number, or text..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-9"
-              />
-              {searchQuery && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                  onClick={() => setSearchQuery('')}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              )}
+            {/* Search and Filter */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search by name, ID number, or text..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-9"
+                />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                    onClick={() => setSearchQuery('')}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-[160px]">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map(cat => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label} {categoryCounts[cat.value] ? `(${categoryCounts[cat.value]})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
-            {searchQuery && (
-              <p className="text-sm text-muted-foreground">
-                Found {filteredDocuments.length} document{filteredDocuments.length !== 1 ? 's' : ''} matching "{searchQuery}"
-              </p>
+            {(searchQuery || categoryFilter !== 'all') && (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Found {filteredDocuments.length} document{filteredDocuments.length !== 1 ? 's' : ''}
+                  {searchQuery && ` matching "${searchQuery}"`}
+                  {categoryFilter !== 'all' && ` in ${categories.find(c => c.value === categoryFilter)?.label}`}
+                </p>
+                {(searchQuery || categoryFilter !== 'all') && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">
+                    <X className="w-3 h-3 mr-1" />
+                    Clear filters
+                  </Button>
+                )}
+              </div>
             )}
             
             <ScrollArea className="h-[400px]">
