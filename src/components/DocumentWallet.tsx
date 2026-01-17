@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
-import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X, Clock, AlertTriangle, Calendar, Pencil, Share2, Link, Check, LinkIcon, ExternalLink, Filter } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X, Clock, AlertTriangle, Calendar, Pencil, Share2, Link, Check, LinkIcon, ExternalLink, Filter, ArrowUpDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,6 +75,8 @@ export const DocumentWallet = () => {
   const [ocrResult, setOcrResult] = useState<{ docId: string; text: string; structuredData?: StructuredOcrData } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'date' | 'name' | 'category'>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [editingExpiryDoc, setEditingExpiryDoc] = useState<Document | null>(null);
   const [editExpiryDate, setEditExpiryDate] = useState('');
   const [sharingDoc, setSharingDoc] = useState<Document | null>(null);
@@ -470,9 +472,34 @@ export const DocumentWallet = () => {
     return acc;
   }, {} as Record<string, number>);
 
+  // Sort filtered documents
+  const sortedDocuments = [...filteredDocuments].sort((a, b) => {
+    let comparison = 0;
+    
+    switch (sortBy) {
+      case 'date':
+        comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        break;
+      case 'name':
+        const nameA = (a.extracted_name || a.file_name).toLowerCase();
+        const nameB = (b.extracted_name || b.file_name).toLowerCase();
+        comparison = nameA.localeCompare(nameB);
+        break;
+      case 'category':
+        comparison = a.document_category.localeCompare(b.document_category);
+        break;
+    }
+    
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
   const clearFilters = () => {
     setSearchQuery('');
     setCategoryFilter('all');
+  };
+
+  const toggleSortDirection = () => {
+    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
   const scanDocumentOCR = async (doc: Document) => {
@@ -1039,6 +1066,31 @@ export const DocumentWallet = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Sort Controls */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Sort by:</span>
+              <Select value={sortBy} onValueChange={(value: 'date' | 'name' | 'category') => setSortBy(value)}>
+                <SelectTrigger className="w-[120px] h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">Date</SelectItem>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="category">Category</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={toggleSortDirection}
+                className="h-8 px-2"
+                title={sortDirection === 'asc' ? 'Ascending' : 'Descending'}
+              >
+                <ArrowUpDown className="w-4 h-4" />
+                <span className="ml-1 text-xs">{sortDirection === 'asc' ? 'Asc' : 'Desc'}</span>
+              </Button>
+            </div>
             
             {(searchQuery || categoryFilter !== 'all') && (
               <div className="flex items-center justify-between">
@@ -1058,7 +1110,7 @@ export const DocumentWallet = () => {
             
             <ScrollArea className="h-[400px]">
               <div className="space-y-2">
-                {filteredDocuments.map((doc) => (
+                {sortedDocuments.map((doc) => (
                   <Card key={doc.id}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-4">
@@ -1194,7 +1246,7 @@ export const DocumentWallet = () => {
                     </CardContent>
                   </Card>
                 ))}
-                {filteredDocuments.length === 0 && documents.length > 0 && (
+                {sortedDocuments.length === 0 && documents.length > 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     No documents match your search.
                   </div>
