@@ -97,6 +97,7 @@ export const DocumentWallet = () => {
   const [showBatchShareDialog, setShowBatchShareDialog] = useState(false);
   const [batchSharing, setBatchSharing] = useState(false);
   const [batchShareResults, setBatchShareResults] = useState<{ docName: string; link: string }[]>([]);
+  const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string>>({});
   
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -134,6 +135,23 @@ export const DocumentWallet = () => {
         ocr_data: doc.ocr_data as unknown as StructuredOcrData | null
       }));
       setDocuments(typedDocs);
+      
+      // Fetch thumbnails for image documents
+      const imageDocs = typedDocs.filter(doc => doc.file_type.startsWith('image/'));
+      if (imageDocs.length > 0) {
+        const urls: Record<string, string> = {};
+        for (const doc of imageDocs) {
+          try {
+            const { data: urlData } = await supabase.storage
+              .from('documents')
+              .createSignedUrl(doc.file_path, 3600);
+            if (urlData?.signedUrl) {
+              urls[doc.id] = urlData.signedUrl;
+            }
+          } catch (e) { /* ignore */ }
+        }
+        setThumbnailUrls(urls);
+      }
     } catch (error) {
       console.error('Error fetching documents:', error);
       toast({
@@ -1255,7 +1273,21 @@ export const DocumentWallet = () => {
                               />
                             </div>
                           )}
-                          {getCategoryIcon(doc.document_category)}
+                          {/* Thumbnail for images */}
+                          {doc.file_type.startsWith('image/') && thumbnailUrls[doc.id] ? (
+                            <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-muted">
+                              <img 
+                                src={thumbnailUrls[doc.id]} 
+                                alt={doc.file_name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            getCategoryIcon(doc.document_category)
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="font-medium truncate">
