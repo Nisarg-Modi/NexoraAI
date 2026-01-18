@@ -119,8 +119,12 @@ const ResetPassword = () => {
         
         <Card className="w-full max-w-md p-8 bg-card/80 backdrop-blur-xl border-border/50 relative z-10">
           <div className="text-center space-y-4">
-            <div className="inline-flex items-center justify-center mb-4 bg-white rounded-xl p-4">
-              <img src={nexoraLogo} alt="Nexora" className="h-16" />
+            <div className="inline-flex items-center justify-center mb-4">
+              <img 
+                src={nexoraLogo} 
+                alt="Nexora" 
+                className="h-24 w-auto drop-shadow-2xl"
+              />
             </div>
             <h2 className="text-xl font-semibold">Invalid or Expired Link</h2>
             <p className="text-muted-foreground">
@@ -146,8 +150,12 @@ const ResetPassword = () => {
 
       <Card className="w-full max-w-md p-8 bg-card/80 backdrop-blur-xl border-border/50 relative z-10">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center mb-4 bg-white rounded-xl p-4">
-            <img src={nexoraLogo} alt="Nexora" className="h-16" />
+          <div className="inline-flex items-center justify-center mb-6">
+            <img 
+              src={nexoraLogo} 
+              alt="Nexora" 
+              className="h-24 w-auto drop-shadow-2xl"
+            />
           </div>
           <h2 className="text-xl font-semibold mb-2">Reset Your Password</h2>
           <p className="text-muted-foreground text-sm">
