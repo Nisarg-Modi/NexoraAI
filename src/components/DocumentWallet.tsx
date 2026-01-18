@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
-import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X, Clock, AlertTriangle, Calendar, Pencil, Share2, Link, Check, LinkIcon, ExternalLink, Filter, ArrowUpDown } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Trash2, Eye, Download, Camera as CameraIcon, ScanText, Loader2, Copy, RefreshCw, Search, X, Clock, AlertTriangle, Calendar, Pencil, Share2, Link, Check, LinkIcon, ExternalLink, Filter, ArrowUpDown, CheckSquare, Square, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -89,6 +89,14 @@ export const DocumentWallet = () => {
   const [showActiveLinks, setShowActiveLinks] = useState(false);
   const [loadingLinks, setLoadingLinks] = useState(false);
   const [revokingLinkId, setRevokingLinkId] = useState<string | null>(null);
+  
+  // Batch selection state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
+  const [batchDeleting, setBatchDeleting] = useState(false);
+  const [showBatchShareDialog, setShowBatchShareDialog] = useState(false);
+  const [batchSharing, setBatchSharing] = useState(false);
+  const [batchShareResults, setBatchShareResults] = useState<{ docName: string; link: string }[]>([]);
   
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -500,6 +508,97 @@ export const DocumentWallet = () => {
 
   const toggleSortDirection = () => {
     setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+  };
+
+  // Batch selection functions
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    setSelectedDocIds(new Set());
+  };
+
+  const toggleDocumentSelection = (docId: string) => {
+    const newSelected = new Set(selectedDocIds);
+    if (newSelected.has(docId)) {
+      newSelected.delete(docId);
+    } else {
+      newSelected.add(docId);
+    }
+    setSelectedDocIds(newSelected);
+  };
+
+  const selectAllDocuments = () => {
+    setSelectedDocIds(new Set(sortedDocuments.map(doc => doc.id)));
+  };
+
+  const deselectAllDocuments = () => {
+    setSelectedDocIds(new Set());
+  };
+
+  const batchDeleteDocuments = async () => {
+    if (selectedDocIds.size === 0) return;
+    setBatchDeleting(true);
+    let successCount = 0;
+    const docsToDelete = documents.filter(doc => selectedDocIds.has(doc.id));
+
+    for (const doc of docsToDelete) {
+      try {
+        await supabase.storage.from('documents').remove([doc.file_path]);
+        await supabase.from('user_documents').delete().eq('id', doc.id);
+        successCount++;
+      } catch (e) { /* continue */ }
+    }
+
+    toast({ title: 'Batch Delete', description: `${successCount} documents deleted` });
+    setSelectedDocIds(new Set());
+    setSelectionMode(false);
+    setBatchDeleting(false);
+    fetchDocuments();
+  };
+
+  const batchShareDocuments = async () => {
+    if (selectedDocIds.size === 0) return;
+    setBatchSharing(true);
+    const results: { docName: string; link: string }[] = [];
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setBatchSharing(false); return; }
+
+    for (const docId of selectedDocIds) {
+      const doc = documents.find(d => d.id === docId);
+      if (!doc) continue;
+      try {
+        const tokenArray = new Uint8Array(32);
+        crypto.getRandomValues(tokenArray);
+        const shareToken = Array.from(tokenArray).map(b => b.toString(16).padStart(2, '0')).join('');
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + parseInt(shareExpiry));
+
+        await supabase.from('document_share_links').insert({
+          document_id: doc.id,
+          user_id: user.id,
+          share_token: shareToken,
+          expires_at: expiresAt.toISOString(),
+          max_access_count: shareMaxAccess ? parseInt(shareMaxAccess) : null,
+        });
+
+        results.push({ docName: doc.extracted_name || doc.file_name, link: `${window.location.origin}/shared-document?token=${shareToken}` });
+      } catch (e) { /* continue */ }
+    }
+
+    setBatchShareResults(results);
+    setBatchSharing(false);
+    if (results.length > 0) toast({ title: 'Share Links Generated', description: `${results.length} links created` });
+  };
+
+  const copyAllBatchLinks = () => {
+    navigator.clipboard.writeText(batchShareResults.map(r => `${r.docName}: ${r.link}`).join('\n'));
+    toast({ title: 'Copied', description: 'All links copied' });
+  };
+
+  const closeBatchShareDialog = () => {
+    setShowBatchShareDialog(false);
+    setBatchShareResults([]);
+    setSelectedDocIds(new Set());
+    setSelectionMode(false);
   };
 
   const scanDocumentOCR = async (doc: Document) => {
@@ -1023,11 +1122,38 @@ export const DocumentWallet = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">My Documents ({documents.length})</h3>
-              <Button variant="outline" size="sm" onClick={openActiveLinksDialog}>
-                <LinkIcon className="w-4 h-4 mr-2" />
-                Active Links
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant={selectionMode ? "default" : "outline"} 
+                  size="sm" 
+                  onClick={toggleSelectionMode}
+                >
+                  <CheckSquare className="w-4 h-4 mr-1" />
+                  {selectionMode ? 'Cancel' : 'Select'}
+                </Button>
+                <Button variant="outline" size="sm" onClick={openActiveLinksDialog}>
+                  <LinkIcon className="w-4 h-4 mr-2" />
+                  Active Links
+                </Button>
+              </div>
             </div>
+            
+            {/* Selection Actions Bar */}
+            {selectionMode && (
+              <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                <span className="text-sm font-medium">{selectedDocIds.size} selected</span>
+                <Button variant="ghost" size="sm" onClick={selectAllDocuments}>Select All</Button>
+                <Button variant="ghost" size="sm" onClick={deselectAllDocuments}>Deselect</Button>
+                <div className="flex-1" />
+                <Button variant="outline" size="sm" onClick={() => setShowBatchShareDialog(true)} disabled={selectedDocIds.size === 0}>
+                  <Share2 className="w-4 h-4 mr-1" />Share
+                </Button>
+                <Button variant="destructive" size="sm" onClick={batchDeleteDocuments} disabled={selectedDocIds.size === 0 || batchDeleting}>
+                  {batchDeleting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1" />}
+                  Delete
+                </Button>
+              </div>
+            )}
             
             {/* Search and Filter */}
             <div className="flex gap-2">
