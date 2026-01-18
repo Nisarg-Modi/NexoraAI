@@ -308,7 +308,7 @@ const Auth = () => {
             <img 
               src={nexoraLogo} 
               alt="Nexora" 
-              className="h-28 w-auto drop-shadow-2xl"
+              className="h-28 w-auto animate-logo-glow"
             />
           </div>
           <p className="text-sm text-muted-foreground italic mb-4">

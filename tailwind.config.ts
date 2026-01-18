@@ -92,12 +92,24 @@ export default {
           "0%, 100%": { transform: "translateY(0px)" },
           "50%": { transform: "translateY(-10px)" },
         },
+        "logo-glow": {
+          "0%, 100%": { 
+            filter: "drop-shadow(0 0 8px hsl(var(--primary) / 0.3))",
+            transform: "scale(1)"
+          },
+          "50%": { 
+            filter: "drop-shadow(0 0 20px hsl(var(--primary) / 0.5))",
+            transform: "scale(1.02)"
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "glow-pulse": "glow-pulse 3s ease-in-out infinite",
         "slide-up": "slide-up 0.5s ease-out",
+        "float": "float 6s ease-in-out infinite",
+        "logo-glow": "logo-glow 4s ease-in-out infinite",
         "float": "float 6s ease-in-out infinite",
       },
     },
