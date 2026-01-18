@@ -87,9 +87,11 @@ export const DocumentWallet = () => {
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [activeShareLinks, setActiveShareLinks] = useState<ShareLink[]>([]);
+  const [expiredShareLinks, setExpiredShareLinks] = useState<ShareLink[]>([]);
   const [showActiveLinks, setShowActiveLinks] = useState(false);
   const [loadingLinks, setLoadingLinks] = useState(false);
   const [revokingLinkId, setRevokingLinkId] = useState<string | null>(null);
+  const [bulkDeletingExpired, setBulkDeletingExpired] = useState(false);
   
   // Batch selection state
   const [selectionMode, setSelectionMode] = useState(false);
@@ -882,7 +884,8 @@ export const DocumentWallet = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      // Fetch active links
+      const { data: activeData, error: activeError } = await supabase
         .from('document_share_links')
         .select('*')
         .eq('user_id', user.id)
@@ -890,15 +893,31 @@ export const DocumentWallet = () => {
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (activeError) throw activeError;
+
+      // Fetch expired or inactive links
+      const { data: expiredData, error: expiredError } = await supabase
+        .from('document_share_links')
+        .select('*')
+        .eq('user_id', user.id)
+        .or(`is_active.eq.false,expires_at.lt.${new Date().toISOString()}`)
+        .order('created_at', { ascending: false });
+
+      if (expiredError) throw expiredError;
 
       // Attach document info to each share link
-      const linksWithDocs = (data || []).map(link => {
+      const activeLinksWithDocs = (activeData || []).map(link => {
         const doc = documents.find(d => d.id === link.document_id);
         return { ...link, document: doc };
       });
 
-      setActiveShareLinks(linksWithDocs);
+      const expiredLinksWithDocs = (expiredData || []).map(link => {
+        const doc = documents.find(d => d.id === link.document_id);
+        return { ...link, document: doc };
+      });
+
+      setActiveShareLinks(activeLinksWithDocs);
+      setExpiredShareLinks(expiredLinksWithDocs);
     } catch (error) {
       console.error('Error fetching share links:', error);
       toast({
@@ -952,6 +971,42 @@ export const DocumentWallet = () => {
       title: 'Copied',
       description: 'Share link copied to clipboard'
     });
+  };
+
+  const bulkDeleteExpiredLinks = async () => {
+    if (expiredShareLinks.length === 0) return;
+    
+    setBulkDeletingExpired(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const expiredIds = expiredShareLinks.map(link => link.id);
+      
+      const { error } = await supabase
+        .from('document_share_links')
+        .delete()
+        .in('id', expiredIds);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Deleted',
+        description: `${expiredIds.length} expired/inactive link${expiredIds.length !== 1 ? 's' : ''} deleted`
+      });
+
+      // Refresh the list
+      await fetchActiveShareLinks();
+    } catch (error) {
+      console.error('Error deleting expired links:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete expired links',
+        variant: 'destructive'
+      });
+    } finally {
+      setBulkDeletingExpired(false);
+    }
   };
 
   const getTimeRemaining = (expiresAt: string): string => {
@@ -1714,7 +1769,7 @@ export const DocumentWallet = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <LinkIcon className="w-5 h-5" />
-              Active Share Links
+              Share Links
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
@@ -1722,76 +1777,153 @@ export const DocumentWallet = () => {
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
-            ) : activeShareLinks.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <LinkIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>No active share links</p>
-                <p className="text-sm mt-1">Share a document to create a link</p>
-              </div>
             ) : (
-              <ScrollArea className="max-h-[400px]">
-                <div className="space-y-3">
-                  {activeShareLinks.map((link) => (
-                    <Card key={link.id}>
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">
-                              {link.document?.extracted_name || link.document?.file_name || 'Unknown Document'}
-                            </p>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              <Badge variant="secondary" className="text-xs">
-                                <Clock className="w-3 h-3 mr-1" />
-                                {getTimeRemaining(link.expires_at)}
-                              </Badge>
-                              {link.max_access_count && (
-                                <Badge variant="outline" className="text-xs">
-                                  {link.accessed_count || 0}/{link.max_access_count} uses
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Created {new Date(link.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => copyActiveLinkToClipboard(link.share_token)}
-                              title="Copy link"
-                            >
-                              <Copy className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => window.open(`/shared-document?token=${link.share_token}`, '_blank')}
-                              title="Open link"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => revokeShareLink(link.id)}
-                              disabled={revokingLinkId === link.id}
-                              title="Revoke link"
-                              className="text-destructive hover:text-destructive"
-                            >
-                              {revokingLinkId === link.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-4 h-4" />
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+              <>
+                {/* Active Links Section */}
+                <div>
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-500" />
+                    Active Links ({activeShareLinks.length})
+                  </h4>
+                  {activeShareLinks.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground border rounded-lg">
+                      <p className="text-sm">No active share links</p>
+                    </div>
+                  ) : (
+                    <ScrollArea className="max-h-[200px]">
+                      <div className="space-y-2">
+                        {activeShareLinks.map((link) => (
+                          <Card key={link.id}>
+                            <CardContent className="p-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm truncate">
+                                    {link.document?.extracted_name || link.document?.file_name || 'Unknown Document'}
+                                  </p>
+                                  <div className="flex flex-wrap gap-2 mt-1">
+                                    <Badge variant="secondary" className="text-xs">
+                                      <Clock className="w-3 h-3 mr-1" />
+                                      {getTimeRemaining(link.expires_at)}
+                                    </Badge>
+                                    {link.max_access_count && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {link.accessed_count || 0}/{link.max_access_count} uses
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Created {new Date(link.created_at).toLocaleDateString()}
+                                  </p>
+                                </div>
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => copyActiveLinkToClipboard(link.share_token)}
+                                    title="Copy link"
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => window.open(`/shared-document?token=${link.share_token}`, '_blank')}
+                                    title="Open link"
+                                  >
+                                    <ExternalLink className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => revokeShareLink(link.id)}
+                                    disabled={revokingLinkId === link.id}
+                                    title="Revoke link"
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    {revokingLinkId === link.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-4 h-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
                 </div>
-              </ScrollArea>
+
+                {/* Expired/Inactive Links Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <XCircle className="w-4 h-4 text-destructive" />
+                      Expired/Inactive ({expiredShareLinks.length})
+                    </h4>
+                    {expiredShareLinks.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={bulkDeleteExpiredLinks}
+                        disabled={bulkDeletingExpired}
+                      >
+                        {bulkDeletingExpired ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            Deleting...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete All
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                  {expiredShareLinks.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground border rounded-lg">
+                      <p className="text-sm">No expired or inactive links</p>
+                    </div>
+                  ) : (
+                    <ScrollArea className="max-h-[150px]">
+                      <div className="space-y-2">
+                        {expiredShareLinks.map((link) => (
+                          <Card key={link.id} className="opacity-60">
+                            <CardContent className="p-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm truncate">
+                                    {link.document?.extracted_name || link.document?.file_name || 'Unknown Document'}
+                                  </p>
+                                  <div className="flex flex-wrap gap-2 mt-1">
+                                    {!link.is_active ? (
+                                      <Badge variant="destructive" className="text-xs">
+                                        Revoked
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="destructive" className="text-xs">
+                                        <Clock className="w-3 h-3 mr-1" />
+                                        Expired
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Created {new Date(link.created_at).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </div>
+              </>
             )}
             <div className="flex justify-end">
               <Button variant="outline" onClick={() => setShowActiveLinks(false)}>
