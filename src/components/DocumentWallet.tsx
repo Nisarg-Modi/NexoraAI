@@ -1237,10 +1237,24 @@ export const DocumentWallet = () => {
             <ScrollArea className="h-[400px]">
               <div className="space-y-2">
                 {sortedDocuments.map((doc) => (
-                  <Card key={doc.id}>
+                  <Card 
+                    key={doc.id} 
+                    className={`cursor-pointer transition-all ${selectedDocIds.has(doc.id) ? 'ring-2 ring-primary bg-primary/5' : ''}`}
+                    onClick={selectionMode ? () => toggleDocumentSelection(doc.id) : undefined}
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex items-start gap-3 flex-1">
+                          {selectionMode && (
+                            <div className="flex items-center pt-1" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={selectedDocIds.has(doc.id)}
+                                onChange={() => toggleDocumentSelection(doc.id)}
+                                className="w-4 h-4 rounded border-gray-300"
+                              />
+                            </div>
+                          )}
                           {getCategoryIcon(doc.document_category)}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -1736,6 +1750,114 @@ export const DocumentWallet = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Share Dialog */}
+      <Dialog open={showBatchShareDialog} onOpenChange={setShowBatchShareDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share {selectedDocIds.size} Documents</DialogTitle>
+          </DialogHeader>
+          
+          {batchShareResults.length === 0 ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Generate share links for all selected documents with the same settings.
+              </p>
+              
+              <div>
+                <Label>Link Expiry (hours)</Label>
+                <Select value={shareExpiry} onValueChange={setShareExpiry}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 hour</SelectItem>
+                    <SelectItem value="24">24 hours</SelectItem>
+                    <SelectItem value="72">3 days</SelectItem>
+                    <SelectItem value="168">7 days</SelectItem>
+                    <SelectItem value="720">30 days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Max Access Count (Optional)</Label>
+                <Input
+                  type="number"
+                  value={shareMaxAccess}
+                  onChange={(e) => setShareMaxAccess(e.target.value)}
+                  placeholder="Unlimited"
+                  min="1"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setShowBatchShareDialog(false)}>
+                  Cancel
+                </Button>
+                <Button className="flex-1" onClick={batchShareDocuments} disabled={batchSharing}>
+                  {batchSharing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Link className="w-4 h-4 mr-2" />
+                      Generate Links
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {batchShareResults.length} links generated
+                </p>
+                <Button variant="outline" size="sm" onClick={copyAllBatchLinks}>
+                  <Copy className="w-4 h-4 mr-1" />
+                  Copy All
+                </Button>
+              </div>
+              
+              <ScrollArea className="h-[250px]">
+                <div className="space-y-2">
+                  {batchShareResults.map((result, idx) => (
+                    <Card key={idx}>
+                      <CardContent className="p-3">
+                        <p className="text-sm font-medium truncate mb-1">{result.docName}</p>
+                        <div className="flex items-center gap-2">
+                          <Input 
+                            value={result.link} 
+                            readOnly 
+                            className="text-xs h-8 flex-1"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText(result.link);
+                              toast({ title: 'Copied', description: 'Link copied' });
+                            }}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+
+              <Button onClick={closeBatchShareDialog} className="w-full">
+                Done
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>
