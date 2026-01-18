@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 
 interface StructuredOcrData {
   document_type: string;
@@ -1273,18 +1274,34 @@ export const DocumentWallet = () => {
                               />
                             </div>
                           )}
-                          {/* Thumbnail for images */}
+                          {/* Thumbnail for images with hover preview */}
                           {doc.file_type.startsWith('image/') && thumbnailUrls[doc.id] ? (
-                            <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-muted">
-                              <img 
-                                src={thumbnailUrls[doc.id]} 
-                                alt={doc.file_name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                              />
-                            </div>
+                            <HoverCard openDelay={200} closeDelay={100}>
+                              <HoverCardTrigger asChild>
+                                <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-muted cursor-pointer hover:ring-2 hover:ring-primary transition-all">
+                                  <img 
+                                    src={thumbnailUrls[doc.id]} 
+                                    alt={doc.file_name}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                              </HoverCardTrigger>
+                              <HoverCardContent side="right" align="start" className="w-80 p-2">
+                                <div className="space-y-2">
+                                  <img 
+                                    src={thumbnailUrls[doc.id]} 
+                                    alt={doc.file_name}
+                                    className="w-full h-auto rounded max-h-64 object-contain bg-muted"
+                                  />
+                                  <p className="text-xs text-muted-foreground text-center truncate">
+                                    {doc.extracted_name || doc.file_name}
+                                  </p>
+                                </div>
+                              </HoverCardContent>
+                            </HoverCard>
                           ) : (
                             getCategoryIcon(doc.document_category)
                           )}
