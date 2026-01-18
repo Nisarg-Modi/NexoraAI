@@ -123,7 +123,7 @@ const ResetPassword = () => {
               <img 
                 src={nexoraLogo} 
                 alt="Nexora" 
-                className="h-24 w-auto drop-shadow-2xl"
+                className="h-24 w-auto animate-logo-glow"
               />
             </div>
             <h2 className="text-xl font-semibold">Invalid or Expired Link</h2>
@@ -154,7 +154,7 @@ const ResetPassword = () => {
             <img 
               src={nexoraLogo} 
               alt="Nexora" 
-              className="h-24 w-auto drop-shadow-2xl"
+              className="h-24 w-auto animate-logo-glow"
             />
           </div>
           <h2 className="text-xl font-semibold mb-2">Reset Your Password</h2>
