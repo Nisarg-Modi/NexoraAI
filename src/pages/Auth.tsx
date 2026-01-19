@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import nexoraLogo from "@/assets/nexora-logo.png";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import DarkModeToggle from "@/components/DarkModeToggle";
 
 const forgotPasswordSchema = z.object({
   email: z.string().trim().email("Invalid email address").max(255, "Email too long"),
@@ -296,6 +297,11 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Dark/Light mode toggle */}
+      <div className="absolute top-4 right-4 z-20">
+        <DarkModeToggle />
+      </div>
+
       {/* Animated background */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-secondary/5 aurora-bg" />
       <div className="absolute top-20 left-20 w-72 h-72 bg-primary/10 rounded-full blur-3xl animate-float" />
