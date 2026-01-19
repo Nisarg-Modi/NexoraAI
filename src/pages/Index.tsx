@@ -14,6 +14,7 @@ import { useAdminCheck } from "@/hooks/useAdminCheck";
 import { useSemanticSearch } from "@/hooks/useSemanticSearch";
 import nexoraLogo from "@/assets/nexora-logo.png";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
+import DarkModeToggle from "@/components/DarkModeToggle";
 import { VoiceProfileManager } from '@/components/VoiceProfileManager';
 import Meetings from '@/pages/Meetings';
 import { UpdatesView } from "@/components/UpdatesView";
@@ -66,6 +67,7 @@ const Index = () => {
             <img src={nexoraLogo} alt="Nexora" className="h-6 sm:h-8" />
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
+            <DarkModeToggle />
             <ThemeSwitcher />
             <Button
               variant="ghost"
@@ -182,6 +184,7 @@ const Index = () => {
     <div className="min-h-screen bg-background overflow-hidden relative">
       {/* Header with user info */}
       <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-20 flex items-center gap-2 sm:gap-4">
+        <DarkModeToggle />
         <span className="hidden sm:inline text-sm text-muted-foreground truncate max-w-[150px] md:max-w-none">
           {user?.email}
         </span>
