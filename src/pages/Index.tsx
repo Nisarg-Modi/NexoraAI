@@ -19,6 +19,7 @@ import { VoiceProfileManager } from '@/components/VoiceProfileManager';
 import Meetings from '@/pages/Meetings';
 import { UpdatesView } from "@/components/UpdatesView";
 import { useOnlinePresence } from "@/hooks/useOnlinePresence";
+import PWAInstallBanner from "@/components/PWAInstallBanner";
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<'home' | 'contacts' | 'chat'>('contacts');
@@ -176,6 +177,8 @@ const Index = () => {
             )}
           </Tabs>
         </div>
+        
+        <PWAInstallBanner />
       </div>
     );
   }
