@@ -11,6 +11,7 @@ import { z } from "zod";
 import nexoraLogo from "@/assets/nexora-logo.png";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import DarkModeToggle from "@/components/DarkModeToggle";
+import { OptimizedImage } from "@/components/ui/optimized-image";
 
 const forgotPasswordSchema = z.object({
   email: z.string().trim().email("Invalid email address").max(255, "Email too long"),
@@ -311,12 +312,11 @@ const Auth = () => {
         {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center mb-4">
-            <img 
+            <OptimizedImage 
               src={nexoraLogo} 
               alt="Nexora" 
               className="h-28 w-auto animate-logo-glow"
-              loading="eager"
-              decoding="async"
+              priority
             />
           </div>
           <p className="text-sm text-muted-foreground italic mb-4">
