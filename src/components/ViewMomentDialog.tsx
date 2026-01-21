@@ -328,6 +328,8 @@ export const ViewMomentDialog = ({
                 src={currentMoment.media_url}
                 alt="Moment"
                 className="w-full max-h-[45vh] object-contain rounded-lg"
+                loading="lazy"
+                decoding="async"
               />
               {currentMoment.content && (
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 rounded-b-lg">
