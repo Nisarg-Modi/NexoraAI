@@ -315,6 +315,8 @@ const Auth = () => {
               src={nexoraLogo} 
               alt="Nexora" 
               className="h-28 w-auto animate-logo-glow"
+              loading="eager"
+              decoding="async"
             />
           </div>
           <p className="text-sm text-muted-foreground italic mb-4">

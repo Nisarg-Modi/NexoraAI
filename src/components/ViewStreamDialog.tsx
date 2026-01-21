@@ -375,6 +375,8 @@ export const ViewStreamDialog = ({
                             src={post.media_url} 
                             alt="Post media" 
                             className="rounded-lg max-h-64 w-auto object-cover"
+                            loading="lazy"
+                            decoding="async"
                           />
                         )}
                         {post.media_url && post.media_type === 'video' && (

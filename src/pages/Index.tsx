@@ -65,7 +65,7 @@ const Index = () => {
         {/* Header with sign out */}
         <div className="sticky top-0 z-20 bg-card/80 backdrop-blur-sm border-b border-border px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={nexoraLogo} alt="Nexora" className="h-6 sm:h-8" />
+            <img src={nexoraLogo} alt="Nexora" className="h-6 sm:h-8" loading="eager" decoding="async" />
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
             <DarkModeToggle />
@@ -212,7 +212,7 @@ const Index = () => {
         <div className="text-center max-w-4xl mx-auto space-y-4 sm:space-y-6 md:space-y-8 animate-slide-up">
           {/* Logo */}
           <div className="flex justify-center mb-4 sm:mb-6">
-            <img src={nexoraLogo} alt="Nexora" className="h-16 sm:h-20 md:h-24 lg:h-32" />
+            <img src={nexoraLogo} alt="Nexora" className="h-16 sm:h-20 md:h-24 lg:h-32" loading="eager" decoding="async" />
           </div>
 
           {/* Headline */}
