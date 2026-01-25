@@ -1293,6 +1293,7 @@ export type Database = {
       user_documents: {
         Row: {
           created_at: string | null
+          deleted_at: string | null
           document_category: string
           extracted_address: string | null
           extracted_dob: string | null
@@ -1313,6 +1314,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          deleted_at?: string | null
           document_category: string
           extracted_address?: string | null
           extracted_dob?: string | null
@@ -1333,6 +1335,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          deleted_at?: string | null
           document_category?: string
           extracted_address?: string | null
           extracted_dob?: string | null
@@ -1566,6 +1569,7 @@ export type Database = {
         Returns: undefined
       }
       phone_number_exists: { Args: { input_phone: string }; Returns: boolean }
+      purge_old_deleted_documents: { Args: never; Returns: undefined }
       record_login_attempt: {
         Args: { identifier_text: string; was_successful: boolean }
         Returns: undefined

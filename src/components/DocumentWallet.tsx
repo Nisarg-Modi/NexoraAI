@@ -48,6 +48,7 @@ interface Document {
   extracted_address?: string | null;
   extracted_expiry_date?: string | null;
   ocr_scanned_at?: string | null;
+  deleted_at?: string | null;
 }
 
 interface ShareLink {
@@ -65,6 +66,8 @@ interface ShareLink {
 export const DocumentWallet = () => {
   const { toast } = useToast();
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [deletedDocuments, setDeletedDocuments] = useState<Document[]>([]);
+  const [showDeletedSection, setShowDeletedSection] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('id');
@@ -134,15 +137,35 @@ export const DocumentWallet = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      
       // Cast the data to our Document type, handling the JSON field
       const typedDocs = (data || []).map(doc => ({
         ...doc,
         ocr_data: doc.ocr_data as unknown as StructuredOcrData | null
       }));
-      setDocuments(typedDocs);
       
-      // Fetch thumbnails for image documents
-      const imageDocs = typedDocs.filter(doc => doc.file_type.startsWith('image/'));
+      // Separate active and deleted documents
+      const activeDocs = typedDocs.filter(doc => !doc.deleted_at);
+      const deletedDocs = typedDocs.filter(doc => doc.deleted_at);
+      
+      setDocuments(activeDocs);
+      setDeletedDocuments(deletedDocs);
+      
+      // Auto-purge documents deleted more than 30 days ago
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const docsToPurge = deletedDocs.filter(doc => 
+        doc.deleted_at && new Date(doc.deleted_at) < thirtyDaysAgo
+      );
+      
+      for (const doc of docsToPurge) {
+        await permanentlyDeleteDocument(doc, true);
+      }
+      
+      // Fetch thumbnails for image documents (both active and deleted)
+      const allDocs = [...activeDocs, ...deletedDocs];
+      const imageDocs = allDocs.filter(doc => doc.file_type.startsWith('image/'));
       if (imageDocs.length > 0) {
         const urls: Record<string, string> = {};
         for (const doc of imageDocs) {
@@ -329,7 +352,60 @@ export const DocumentWallet = () => {
     }
   };
 
+  // Soft delete - moves document to "Recently Deleted"
   const deleteDocument = async (doc: Document) => {
+    try {
+      const { error } = await supabase
+        .from('user_documents')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', doc.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Document moved to Recently Deleted',
+        description: 'You can restore it within 30 days'
+      });
+
+      await fetchDocuments();
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete document',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // Restore a soft-deleted document
+  const restoreDocument = async (doc: Document) => {
+    try {
+      const { error } = await supabase
+        .from('user_documents')
+        .update({ deleted_at: null })
+        .eq('id', doc.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Document restored',
+        description: 'Your document has been restored successfully'
+      });
+
+      await fetchDocuments();
+    } catch (error) {
+      console.error('Error restoring document:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to restore document',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // Permanently delete document (from storage and database)
+  const permanentlyDeleteDocument = async (doc: Document, silent = false) => {
     try {
       // Delete from storage
       const { error: storageError } = await supabase.storage
@@ -346,20 +422,32 @@ export const DocumentWallet = () => {
 
       if (dbError) throw dbError;
 
-      toast({
-        title: 'Success',
-        description: 'Document deleted successfully'
-      });
-
-      await fetchDocuments();
+      if (!silent) {
+        toast({
+          title: 'Document permanently deleted',
+          description: 'This action cannot be undone'
+        });
+        await fetchDocuments();
+      }
     } catch (error) {
-      console.error('Error deleting document:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete document',
-        variant: 'destructive'
-      });
+      console.error('Error permanently deleting document:', error);
+      if (!silent) {
+        toast({
+          title: 'Error',
+          description: 'Failed to permanently delete document',
+          variant: 'destructive'
+        });
+      }
     }
+  };
+
+  // Calculate days until permanent deletion
+  const getDaysUntilPermanentDeletion = (deletedAt: string): number => {
+    const deleted = new Date(deletedAt);
+    const purgeDate = new Date(deleted);
+    purgeDate.setDate(purgeDate.getDate() + 30);
+    const today = new Date();
+    return Math.max(0, Math.ceil((purgeDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
   };
 
   const viewDocument = async (doc: Document) => {
@@ -1505,6 +1593,89 @@ export const DocumentWallet = () => {
               </div>
             </ScrollArea>
           </div>
+
+          {/* Recently Deleted Section */}
+          {deletedDocuments.length > 0 && (
+            <div className="space-y-3">
+              <div 
+                className="flex items-center justify-between cursor-pointer p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                onClick={() => setShowDeletedSection(!showDeletedSection)}
+              >
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-5 h-5 text-muted-foreground" />
+                  <h3 className="font-semibold text-muted-foreground">Recently Deleted ({deletedDocuments.length})</h3>
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  {showDeletedSection ? '▼' : '▶'}
+                </span>
+              </div>
+              
+              {showDeletedSection && (
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-2">
+                    {deletedDocuments.map((doc) => {
+                      const daysLeft = getDaysUntilPermanentDeletion(doc.deleted_at!);
+                      return (
+                        <Card key={doc.id} className="bg-muted/30 border-dashed">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex items-start gap-3 flex-1">
+                                {doc.file_type.startsWith('image/') && thumbnailUrls[doc.id] ? (
+                                  <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-muted opacity-60">
+                                    <img 
+                                      src={thumbnailUrls[doc.id]} 
+                                      alt={doc.file_name}
+                                      className="w-full h-full object-cover grayscale"
+                                    />
+                                  </div>
+                                ) : (
+                                  <FileText className="w-5 h-5 text-muted-foreground" />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-muted-foreground truncate">
+                                    {doc.extracted_name || doc.file_name}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground capitalize">
+                                    {doc.document_category.replace('_', ' ')}
+                                  </p>
+                                  <Badge 
+                                    variant="secondary" 
+                                    className={`text-xs mt-1 ${daysLeft <= 7 ? 'bg-destructive/10 text-destructive' : ''}`}
+                                  >
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    {daysLeft === 0 ? 'Deleting today' : `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left`}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => restoreDocument(doc)}
+                                  title="Restore document"
+                                >
+                                  <RefreshCw className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => permanentlyDeleteDocument(doc)}
+                                  title="Delete permanently"
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
