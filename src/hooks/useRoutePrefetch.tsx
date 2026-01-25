@@ -3,8 +3,6 @@ import { useEffect, useCallback } from "react";
 // Define prefetch functions for critical routes
 const routePrefetchers = {
   index: () => import("@/pages/Index"),
-  meetings: () => import("@/pages/Meetings"),
-  meetingDetails: () => import("@/pages/MeetingDetails"),
   voiceProfiles: () => import("@/pages/VoiceProfiles"),
   install: () => import("@/pages/Install"),
 };
@@ -26,7 +24,6 @@ export const prefetchRoute = (route: RouteKey) => {
 export const prefetchCriticalRoutes = () => {
   // Prefetch most commonly accessed routes
   prefetchRoute("index");
-  prefetchRoute("meetings");
 };
 
 export const useRoutePrefetch = () => {
