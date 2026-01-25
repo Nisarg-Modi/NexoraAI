@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 
 interface StructuredOcrData {
@@ -101,6 +102,7 @@ export const DocumentWallet = () => {
   const [batchSharing, setBatchSharing] = useState(false);
   const [batchShareResults, setBatchShareResults] = useState<{ docName: string; link: string }[]>([]);
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string>>({});
+  const [deleteConfirmDoc, setDeleteConfirmDoc] = useState<Document | null>(null);
   
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -1481,7 +1483,7 @@ export const DocumentWallet = () => {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={(e) => { e.stopPropagation(); deleteDocument(doc); }}
+                            onClick={(e) => { e.stopPropagation(); setDeleteConfirmDoc(doc); }}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -2041,6 +2043,32 @@ export const DocumentWallet = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmDoc} onOpenChange={(open) => !open && setDeleteConfirmDoc(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Document</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteConfirmDoc?.extracted_name || deleteConfirmDoc?.file_name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteConfirmDoc) {
+                  deleteDocument(deleteConfirmDoc);
+                  setDeleteConfirmDoc(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
