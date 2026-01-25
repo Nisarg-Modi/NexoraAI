@@ -12,8 +12,6 @@ const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const Meetings = lazy(() => import("./pages/Meetings"));
-const MeetingDetails = lazy(() => import("./pages/MeetingDetails"));
 const VoiceProfiles = lazy(() => import("./pages/VoiceProfiles"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 const SharedDocument = lazy(() => import("./pages/SharedDocument"));
@@ -68,22 +66,6 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <Index />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/meetings"
-            element={
-              <ProtectedRoute>
-                <Meetings />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/meeting/:meetingId"
-            element={
-              <ProtectedRoute>
-                <MeetingDetails />
               </ProtectedRoute>
             }
           />

@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import LiveTranscription from './LiveTranscription';
-import { EmotionAnalytics } from './EmotionAnalytics';
+
 
 interface CallInterfaceProps {
   callId: string;
@@ -396,7 +396,7 @@ export const CallInterface = ({
           </div>
         </div>
 
-        {/* Live Transcription & Analytics Sidebar */}
+        {/* Live Transcription Sidebar */}
         {showTranscription && meetingId && user && (
           <div className="w-96 border-l p-4 overflow-y-auto space-y-4">
             <LiveTranscription
@@ -405,10 +405,6 @@ export const CallInterface = ({
               userName={user.email || 'You'}
               targetLanguage="en"
               enabled={true}
-            />
-            <EmotionAnalytics
-              meetingId={meetingId}
-              transcripts={transcripts}
             />
           </div>
         )}
