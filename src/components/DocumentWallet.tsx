@@ -1430,11 +1430,11 @@ export const DocumentWallet = () => {
                             </p>
                           </div>
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => viewDocument(doc)}
+                            onClick={(e) => { e.stopPropagation(); viewDocument(doc); }}
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
@@ -1442,7 +1442,7 @@ export const DocumentWallet = () => {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => scanDocumentOCR(doc)}
+                              onClick={(e) => { e.stopPropagation(); scanDocumentOCR(doc); }}
                               disabled={ocrScanning === doc.id}
                               title={doc.notes?.includes('--- OCR Extracted Text ---') ? 'Re-scan document (OCR)' : 'Extract text (OCR)'}
                             >
@@ -1458,7 +1458,7 @@ export const DocumentWallet = () => {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => openEditExpiry(doc)}
+                            onClick={(e) => { e.stopPropagation(); openEditExpiry(doc); }}
                             title="Edit expiry date"
                           >
                             <Pencil className="w-4 h-4" />
@@ -1466,7 +1466,7 @@ export const DocumentWallet = () => {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => openShareDialog(doc)}
+                            onClick={(e) => { e.stopPropagation(); openShareDialog(doc); }}
                             title="Share document"
                           >
                             <Share2 className="w-4 h-4" />
@@ -1474,14 +1474,14 @@ export const DocumentWallet = () => {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => downloadDocument(doc)}
+                            onClick={(e) => { e.stopPropagation(); downloadDocument(doc); }}
                           >
                             <Download className="w-4 h-4" />
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => deleteDocument(doc)}
+                            onClick={(e) => { e.stopPropagation(); deleteDocument(doc); }}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
