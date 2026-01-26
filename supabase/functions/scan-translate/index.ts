@@ -58,27 +58,53 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an expert OCR assistant. Extract ALL visible text from images accurately. 
-            Focus on:
-            - Printed text (signs, labels, documents, menus, etc.)
-            - Handwritten text if legible
-            - Text in any language
-            
-            Return ONLY the extracted text, nothing else. Preserve the original structure and line breaks where appropriate.`
+            content: `You are an expert OCR assistant. Extract ALL visible text from images accurately and detect the language.`
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: 'Extract all text from this image. Return only the raw text content.'
+                text: 'Extract all text from this image and detect the language of the text.'
               },
               imageContent
             ]
           }
         ],
-        temperature: 0.1,
-        max_tokens: 2000,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "extract_text_with_language",
+              description: "Extract text from image and detect its language",
+              parameters: {
+                type: "object",
+                properties: {
+                  extracted_text: {
+                    type: "string",
+                    description: "All text extracted from the image, preserving structure and line breaks"
+                  },
+                  detected_language: {
+                    type: "string",
+                    description: "ISO 639-1 language code of the detected language (e.g., 'en', 'es', 'fr', 'de', 'zh', 'ja', 'ko', 'ar', 'hi', 'ru')"
+                  },
+                  language_name: {
+                    type: "string",
+                    description: "Human-readable name of the detected language (e.g., 'English', 'Spanish', 'French')"
+                  },
+                  confidence: {
+                    type: "string",
+                    enum: ["high", "medium", "low"],
+                    description: "Confidence level of language detection"
+                  }
+                },
+                required: ["extracted_text", "detected_language", "language_name"],
+                additionalProperties: false
+              }
+            }
+          }
+        ],
+        tool_choice: { type: "function", function: { name: "extract_text_with_language" } }
       }),
     });
 
@@ -103,7 +129,15 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const extractedText = data.choices?.[0]?.message?.content?.trim();
+    
+    // Extract the tool call result
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall || toolCall.function.name !== 'extract_text_with_language') {
+      throw new Error('Failed to extract text from image');
+    }
+
+    const result = JSON.parse(toolCall.function.arguments);
+    const extractedText = result.extracted_text?.trim();
 
     if (!extractedText) {
       return new Response(
@@ -112,12 +146,15 @@ serve(async (req) => {
       );
     }
 
-    console.log('Text extraction successful, length:', extractedText.length);
+    console.log('Text extraction successful, language:', result.language_name, 'length:', extractedText.length);
 
     return new Response(
       JSON.stringify({ 
         success: true,
         extractedText,
+        detectedLanguage: result.detected_language,
+        languageName: result.language_name,
+        confidence: result.confidence || 'medium'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

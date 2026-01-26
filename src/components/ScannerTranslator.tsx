@@ -30,6 +30,7 @@ export function ScannerTranslator() {
   const [extractedText, setExtractedText] = useState('');
   const [translatedText, setTranslatedText] = useState('');
   const [targetLanguage, setTargetLanguage] = useState('en');
+  const [detectedLanguage, setDetectedLanguage] = useState<{ code: string; name: string; confidence?: string } | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -94,6 +95,7 @@ export function ScannerTranslator() {
     setIsExtracting(true);
     setExtractedText('');
     setTranslatedText('');
+    setDetectedLanguage(null);
     
     try {
       const { data, error } = await supabase.functions.invoke('scan-translate', {
@@ -104,6 +106,13 @@ export function ScannerTranslator() {
       
       if (data?.extractedText) {
         setExtractedText(data.extractedText);
+        if (data.detectedLanguage && data.languageName) {
+          setDetectedLanguage({
+            code: data.detectedLanguage,
+            name: data.languageName,
+            confidence: data.confidence
+          });
+        }
         toast.success('Text extracted successfully!');
       } else {
         toast.error('No text found in image');
@@ -155,7 +164,17 @@ export function ScannerTranslator() {
     setCapturedImage(null);
     setExtractedText('');
     setTranslatedText('');
+    setDetectedLanguage(null);
     stopCamera();
+  };
+
+  const getConfidenceBadgeColor = (confidence?: string) => {
+    switch (confidence) {
+      case 'high': return 'bg-green-500/20 text-green-600 dark:text-green-400';
+      case 'medium': return 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400';
+      case 'low': return 'bg-red-500/20 text-red-600 dark:text-red-400';
+      default: return 'bg-muted text-muted-foreground';
+    }
   };
 
   return (
@@ -249,8 +268,22 @@ export function ScannerTranslator() {
           {/* Extracted text */}
           {extractedText && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Extracted Text</label>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Extracted Text</label>
+                  {detectedLanguage && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                        {detectedLanguage.name}
+                      </span>
+                      {detectedLanguage.confidence && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${getConfidenceBadgeColor(detectedLanguage.confidence)}`}>
+                          {detectedLanguage.confidence} confidence
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <Button 
                   variant="ghost" 
                   size="sm"
