@@ -312,13 +312,25 @@ export function ScannerTranslator() {
                     </div>
                   )}
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => copyToClipboard(extractedText)}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  {detectedLanguage && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => speakText(extractedText, detectedLanguage.code)}
+                      title={isSpeaking ? "Stop speaking" : "Listen to extracted text"}
+                    >
+                      {isSpeaking ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                    </Button>
+                  )}
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => copyToClipboard(extractedText)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <Textarea 
                 value={extractedText}
