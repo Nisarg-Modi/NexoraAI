@@ -25,20 +25,25 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Build image content for the vision model
-    let imageContent;
+    // Extract base64 data and mime type
+    let base64Data: string;
+    let mimeType = 'image/jpeg';
+    
     const matches = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
     if (matches) {
-      imageContent = {
-        type: "image_url",
-        image_url: { url: imageBase64 }
-      };
+      mimeType = matches[1];
+      base64Data = matches[2];
     } else {
-      imageContent = {
-        type: "image_url",
-        image_url: { url: `data:image/jpeg;base64,${imageBase64}` }
-      };
+      base64Data = imageBase64;
     }
+
+    // Build image content for the vision model using inline_data format
+    const imageContent = {
+      type: "image_url",
+      image_url: { 
+        url: `data:${mimeType};base64,${base64Data}`
+      }
+    };
 
     console.log('Extracting text from image for translation...');
 
