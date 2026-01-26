@@ -1110,6 +1110,45 @@ export type Database = {
         }
         Relationships: []
       }
+      scan_translations: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string | null
+          original_text: string
+          source_language: string
+          source_language_name: string | null
+          target_language: string
+          target_language_name: string | null
+          translated_text: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          original_text: string
+          source_language: string
+          source_language_name?: string | null
+          target_language: string
+          target_language_name?: string | null
+          translated_text: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          original_text?: string
+          source_language?: string
+          source_language_name?: string | null
+          target_language?: string
+          target_language_name?: string | null
+          translated_text?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       security_audit_log: {
         Row: {
           created_at: string

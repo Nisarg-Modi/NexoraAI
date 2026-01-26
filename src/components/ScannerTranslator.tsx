@@ -3,10 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Camera, Upload, Languages, Copy, Loader2, X, RotateCcw, Volume2, VolumeX } from 'lucide-react';
+import { Camera, Upload, Languages, Copy, Loader2, X, RotateCcw, Volume2, VolumeX, Save, History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
+import { ScanTranslationHistory } from './ScanTranslationHistory';
 const LANGUAGES = [
   { code: 'en', name: 'English' },
   { code: 'es', name: 'Spanish' },
@@ -35,6 +35,8 @@ export function ScannerTranslator() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -196,6 +198,44 @@ export function ScannerTranslator() {
     stopCamera();
   };
 
+  const saveTranslation = async () => {
+    if (!extractedText || !translatedText) {
+      toast.error('Nothing to save');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Please sign in to save translations');
+        return;
+      }
+
+      const targetLangName = LANGUAGES.find(l => l.code === targetLanguage)?.name;
+
+      const { error } = await supabase
+        .from('scan_translations')
+        .insert({
+          user_id: user.id,
+          original_text: extractedText,
+          translated_text: translatedText,
+          source_language: detectedLanguage?.code || 'unknown',
+          source_language_name: detectedLanguage?.name || 'Unknown',
+          target_language: targetLanguage,
+          target_language_name: targetLangName || targetLanguage,
+        });
+
+      if (error) throw error;
+      toast.success('Translation saved to history');
+    } catch (error) {
+      console.error('Error saving translation:', error);
+      toast.error('Failed to save translation');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const getConfidenceBadgeColor = (confidence?: string) => {
     switch (confidence) {
       case 'high': return 'bg-green-500/20 text-green-600 dark:text-green-400';
@@ -205,14 +245,24 @@ export function ScannerTranslator() {
     }
   };
 
+  if (showHistory) {
+    return <ScanTranslationHistory onBack={() => setShowHistory(false)} />;
+  }
+
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Languages className="h-5 w-5 text-primary" />
-            Scan & Translate
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Languages className="h-5 w-5 text-primary" />
+              Scan & Translate
+            </CardTitle>
+            <Button variant="outline" size="sm" onClick={() => setShowHistory(true)}>
+              <History className="h-4 w-4 mr-2" />
+              History
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Camera / Image capture area */}
@@ -407,6 +457,24 @@ export function ScannerTranslator() {
                 rows={4}
                 className="resize-none bg-muted/50"
               />
+              <Button 
+                onClick={saveTranslation} 
+                disabled={isSaving}
+                variant="outline"
+                className="w-full"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save to History
+                  </>
+                )}
+              </Button>
             </div>
           )}
         </CardContent>
