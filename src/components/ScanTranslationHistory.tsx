@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { History, Trash2, Copy, Volume2, Loader2, ArrowLeft, Languages } from 'lucide-react';
+import { History, Trash2, Copy, Volume2, Loader2, ArrowLeft, Languages, Download, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface ScanTranslation {
   id: string;
@@ -92,6 +94,79 @@ export function ScanTranslationHistory({ onBack }: ScanTranslationHistoryProps) 
     window.speechSynthesis.speak(utterance);
   };
 
+  const exportToCSV = () => {
+    if (translations.length === 0) {
+      toast.error('No translations to export');
+      return;
+    }
+
+    const headers = ['Date', 'Source Language', 'Target Language', 'Original Text', 'Translated Text'];
+    const csvRows = [
+      headers.join(','),
+      ...translations.map(t => [
+        format(new Date(t.created_at), 'yyyy-MM-dd HH:mm'),
+        `"${(t.source_language_name || t.source_language).replace(/"/g, '""')}"`,
+        `"${(t.target_language_name || t.target_language).replace(/"/g, '""')}"`,
+        `"${t.original_text.replace(/"/g, '""')}"`,
+        `"${t.translated_text.replace(/"/g, '""')}"`
+      ].join(','))
+    ];
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `translation-history-${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success('CSV exported successfully');
+  };
+
+  const exportToPDF = () => {
+    if (translations.length === 0) {
+      toast.error('No translations to export');
+      return;
+    }
+
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(18);
+    doc.text('Translation History', 14, 22);
+    doc.setFontSize(10);
+    doc.text(`Exported on ${format(new Date(), 'PPp')}`, 14, 30);
+
+    // Table data
+    const tableData = translations.map(t => [
+      format(new Date(t.created_at), 'MM/dd/yy'),
+      t.source_language_name || t.source_language,
+      t.target_language_name || t.target_language,
+      t.original_text.length > 50 ? t.original_text.substring(0, 50) + '...' : t.original_text,
+      t.translated_text.length > 50 ? t.translated_text.substring(0, 50) + '...' : t.translated_text
+    ]);
+
+    autoTable(doc, {
+      head: [['Date', 'From', 'To', 'Original', 'Translation']],
+      body: tableData,
+      startY: 38,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [59, 130, 246] },
+      columnStyles: {
+        0: { cellWidth: 22 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 55 },
+        4: { cellWidth: 55 }
+      }
+    });
+
+    doc.save(`translation-history-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    toast.success('PDF exported successfully');
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -109,10 +184,24 @@ export function ScanTranslationHistory({ onBack }: ScanTranslationHistoryProps) 
               <History className="h-5 w-5 text-primary" />
               Translation History
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={onBack}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
+            <div className="flex items-center gap-2">
+              {translations.length > 0 && (
+                <>
+                  <Button variant="outline" size="sm" onClick={exportToCSV} title="Export as CSV">
+                    <Download className="h-4 w-4 mr-1" />
+                    CSV
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={exportToPDF} title="Export as PDF">
+                    <FileText className="h-4 w-4 mr-1" />
+                    PDF
+                  </Button>
+                </>
+              )}
+              <Button variant="ghost" size="sm" onClick={onBack}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
