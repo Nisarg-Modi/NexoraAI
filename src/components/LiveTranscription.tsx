@@ -17,19 +17,19 @@ interface Transcript {
 }
 
 interface LiveTranscriptionProps {
-  meetingId: string;
   userId: string;
   userName: string;
   targetLanguage?: string;
   enabled?: boolean;
+  onTranscript?: (text: string, translated?: string) => void;
 }
 
 const LiveTranscription = ({
-  meetingId,
   userId,
   userName,
   targetLanguage = "en",
   enabled = true,
+  onTranscript,
 }: LiveTranscriptionProps) => {
   const { toast } = useToast();
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
@@ -188,7 +188,7 @@ const LiveTranscription = ({
     setTranscripts((prev) => [...prev, newTranscript]);
 
     // Translate if needed
-    let translatedText = text;
+    let translatedText: string | undefined;
     if (targetLanguage !== "en") {
       try {
         const { data, error } = await supabase.functions.invoke("translate-message", {
@@ -213,17 +213,8 @@ const LiveTranscription = ({
       }
     }
 
-    // Save to database
-    try {
-      await supabase.from("meeting_transcripts").insert({
-        meeting_id: meetingId,
-        speaker_id: userId,
-        content: text,
-        translated_content: targetLanguage !== "en" ? { [targetLanguage]: translatedText } : null,
-      });
-    } catch (error) {
-      console.error("Error saving transcript:", error);
-    }
+    // Notify parent component
+    onTranscript?.(text, translatedText);
   };
 
   const toggleRecording = () => {
