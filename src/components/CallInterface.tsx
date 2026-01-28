@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Users } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Users, Languages } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useWebRTC } from '@/hooks/useWebRTC';
@@ -16,7 +16,6 @@ interface CallInterfaceProps {
   participantNames: Map<string, string>;
   isVideo: boolean;
   onEndCall: () => void;
-  meetingId?: string;
 }
 
 export const CallInterface = ({
@@ -26,14 +25,12 @@ export const CallInterface = ({
   participantNames,
   isVideo,
   onEndCall,
-  meetingId,
 }: CallInterfaceProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
-  const [showTranscription, setShowTranscription] = useState(!!meetingId);
-  const [transcripts, setTranscripts] = useState<any[]>([]);
+  const [showTranscription, setShowTranscription] = useState(false);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
 
@@ -62,31 +59,6 @@ export const CallInterface = ({
     console.log('Initializing call with participants:', participantIds);
     initializeCall(participantIds);
   }, []);
-
-  useEffect(() => {
-    if (!meetingId) return;
-
-    // Fetch transcripts initially
-    const fetchTranscripts = async () => {
-      const { data } = await supabase
-        .from('meeting_transcripts')
-        .select('*')
-        .eq('meeting_id', meetingId)
-        .order('timestamp', { ascending: false })
-        .limit(10);
-      
-      if (data) {
-        setTranscripts(data);
-      }
-    };
-
-    fetchTranscripts();
-
-    // Poll for new transcripts every 10 seconds
-    const interval = setInterval(fetchTranscripts, 10000);
-
-    return () => clearInterval(interval);
-  }, [meetingId]);
 
   useEffect(() => {
     if (localStream && localVideoRef.current) {
@@ -380,6 +352,16 @@ export const CallInterface = ({
 
               <Button
                 size="lg"
+                variant={showTranscription ? 'default' : 'secondary'}
+                onClick={() => setShowTranscription(!showTranscription)}
+                className="rounded-full w-14 h-14"
+                title="Toggle Live Transcription"
+              >
+                <Languages className="w-6 h-6" />
+              </Button>
+
+              <Button
+                size="lg"
                 variant="destructive"
                 onClick={handleEndCall}
                 className="rounded-full w-14 h-14"
@@ -397,10 +379,9 @@ export const CallInterface = ({
         </div>
 
         {/* Live Transcription Sidebar */}
-        {showTranscription && meetingId && user && (
+        {showTranscription && user && (
           <div className="w-96 border-l p-4 overflow-y-auto space-y-4">
             <LiveTranscription
-              meetingId={meetingId}
               userId={userId}
               userName={user.email || 'You'}
               targetLanguage="en"
