@@ -37,8 +37,24 @@ const getLanguageName = (code: string): string => {
   return lang?.name || code.toUpperCase();
 };
 
+// Speaker colors for visual differentiation
+const SPEAKER_COLORS = [
+  { bg: "bg-blue-500/20", text: "text-blue-600", border: "border-blue-500/30" },
+  { bg: "bg-green-500/20", text: "text-green-600", border: "border-green-500/30" },
+  { bg: "bg-purple-500/20", text: "text-purple-600", border: "border-purple-500/30" },
+  { bg: "bg-orange-500/20", text: "text-orange-600", border: "border-orange-500/30" },
+  { bg: "bg-pink-500/20", text: "text-pink-600", border: "border-pink-500/30" },
+  { bg: "bg-cyan-500/20", text: "text-cyan-600", border: "border-cyan-500/30" },
+];
+
+interface Participant {
+  id: string;
+  name: string;
+}
+
 interface Transcript {
   id: string;
+  speakerId: string;
   speaker: string;
   text: string;
   timestamp: Date;
@@ -49,18 +65,26 @@ interface Transcript {
 interface LiveTranscriptionProps {
   userId: string;
   userName: string;
+  participants?: Participant[];
   targetLanguage?: string;
   enabled?: boolean;
-  onTranscript?: (text: string, translated?: string) => void;
+  onTranscript?: (text: string, translated?: string, speakerId?: string) => void;
 }
 
 const LiveTranscription = ({
   userId,
   userName,
+  participants = [],
   targetLanguage: initialTargetLanguage = "en",
   enabled = true,
   onTranscript,
 }: LiveTranscriptionProps) => {
+  // Create a map of speaker IDs to colors for consistent coloring
+  const getSpeakerColor = (speakerId: string) => {
+    const allParticipants = [{ id: userId, name: userName }, ...participants];
+    const index = allParticipants.findIndex(p => p.id === speakerId);
+    return SPEAKER_COLORS[index % SPEAKER_COLORS.length];
+  };
   const [selectedLanguage, setSelectedLanguage] = useState(initialTargetLanguage);
   const [isLoadingPreference, setIsLoadingPreference] = useState(true);
   const { toast } = useToast();
@@ -252,10 +276,11 @@ const LiveTranscription = ({
     }
   };
 
-  const handleNewTranscript = async (text: string) => {
+  const handleNewTranscript = async (text: string, speakerId: string = userId, speakerName: string = userName) => {
     const newTranscript: Transcript = {
       id: crypto.randomUUID(),
-      speaker: userName,
+      speakerId,
+      speaker: speakerName,
       text,
       timestamp: new Date(),
     };
@@ -330,7 +355,7 @@ const LiveTranscription = ({
     }
 
     // Notify parent component
-    onTranscript?.(text, translatedText);
+    onTranscript?.(text, translatedText, speakerId);
   };
 
   const toggleRecording = () => {
@@ -403,32 +428,37 @@ const LiveTranscription = ({
             </div>
           ) : (
             <div className="space-y-3">
-              {transcripts.map((transcript) => (
-                <div
-                  key={transcript.id}
-                  className="p-3 bg-muted rounded-lg space-y-1"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{transcript.speaker}</span>
-                      {transcript.detectedLanguage && (
-                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                          {transcript.detectedLanguage}
+              {transcripts.map((transcript) => {
+                const speakerColor = getSpeakerColor(transcript.speakerId);
+                return (
+                  <div
+                    key={transcript.id}
+                    className={`p-3 rounded-lg space-y-1 border-l-4 ${speakerColor.border} bg-muted`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-medium px-2 py-0.5 rounded ${speakerColor.bg} ${speakerColor.text}`}>
+                          {transcript.speaker}
                         </span>
-                      )}
+                        {transcript.detectedLanguage && (
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                            {transcript.detectedLanguage}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {transcript.timestamp.toLocaleTimeString()}
+                      </span>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {transcript.timestamp.toLocaleTimeString()}
-                    </span>
+                    <p className="text-sm">{transcript.text}</p>
+                    {transcript.translated && (
+                      <p className="text-sm text-primary italic">
+                        {transcript.translated}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-sm">{transcript.text}</p>
-                  {transcript.translated && (
-                    <p className="text-sm text-primary italic">
-                      {transcript.translated}
-                    </p>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </ScrollArea>
