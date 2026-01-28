@@ -55,6 +55,7 @@ const LiveTranscription = ({
   onTranscript,
 }: LiveTranscriptionProps) => {
   const [selectedLanguage, setSelectedLanguage] = useState(initialTargetLanguage);
+  const [isLoadingPreference, setIsLoadingPreference] = useState(true);
   const { toast } = useToast();
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -62,6 +63,50 @@ const LiveTranscription = ({
   const wsRef = useRef<WebSocket | null>(null);
   const recorderRef = useRef<AudioRecorder | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Load user's preferred language from profile on mount
+  useEffect(() => {
+    const loadPreferredLanguage = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('preferred_language')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (!error && data?.preferred_language) {
+          setSelectedLanguage(data.preferred_language);
+        }
+      } catch (error) {
+        console.error('Error loading preferred language:', error);
+      } finally {
+        setIsLoadingPreference(false);
+      }
+    };
+
+    loadPreferredLanguage();
+  }, [userId]);
+
+  // Save language preference when it changes
+  const handleLanguageChange = async (newLanguage: string) => {
+    setSelectedLanguage(newLanguage);
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ preferred_language: newLanguage })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving language preference:', error);
+      toast({
+        title: "Couldn't save preference",
+        description: "Your language selection will be used for this session only.",
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     if (enabled && isRecording) {
@@ -283,9 +328,13 @@ const LiveTranscription = ({
           <label className="text-sm text-muted-foreground mb-1.5 block">
             Translate to
           </label>
-          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+          <Select 
+            value={selectedLanguage} 
+            onValueChange={handleLanguageChange}
+            disabled={isLoadingPreference}
+          >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select language" />
+              <SelectValue placeholder={isLoadingPreference ? "Loading..." : "Select language"} />
             </SelectTrigger>
             <SelectContent>
               {availableLanguages.map((lang) => (
