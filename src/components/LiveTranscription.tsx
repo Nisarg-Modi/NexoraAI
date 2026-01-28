@@ -9,6 +9,7 @@ import { AudioRecorder, encodeAudioForAPI } from "@/utils/audioRecorder";
 import { supabase } from "@/integrations/supabase/client";
 
 const availableLanguages = [
+  { code: "auto", name: "🔍 Auto-detect" },
   { code: "en", name: "English" },
   { code: "es", name: "Spanish" },
   { code: "fr", name: "French" },
@@ -256,30 +257,63 @@ const LiveTranscription = ({
     // Add to local state immediately
     setTranscripts((prev) => [...prev, newTranscript]);
 
-    // Translate if needed
+    // Handle translation based on selected language mode
     let translatedText: string | undefined;
-    if (selectedLanguage !== "en") {
-      try {
+    let detectedLanguage: string | undefined;
+
+    try {
+      if (selectedLanguage === "auto") {
+        // Auto-detect mode: detect source language and translate to user's preferred language
+        const { data: detectData, error: detectError } = await supabase.functions.invoke("detect-language", {
+          body: { text },
+        });
+
+        if (!detectError && detectData?.languageCode) {
+          detectedLanguage = detectData.languageCode;
+          
+          // Get user's preferred language from profile (default to English)
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('preferred_language')
+            .eq('user_id', userId)
+            .maybeSingle();
+          
+          const userPreferredLang = profileData?.preferred_language || 'en';
+          
+          // Only translate if detected language differs from user's preferred language
+          if (detectedLanguage !== userPreferredLang) {
+            const { data: translateData, error: translateError } = await supabase.functions.invoke("translate-message", {
+              body: { text, targetLanguage: userPreferredLang },
+            });
+
+            if (!translateError && translateData?.translatedText) {
+              translatedText = translateData.translatedText;
+            }
+          }
+        }
+      } else if (selectedLanguage !== "en") {
+        // Manual language selection: translate to selected language
         const { data, error } = await supabase.functions.invoke("translate-message", {
-          body: {
-            text,
-            targetLanguage: selectedLanguage,
-          },
+          body: { text, targetLanguage: selectedLanguage },
         });
 
         if (!error && data?.translatedText) {
           translatedText = data.translatedText;
-          newTranscript.translated = translatedText;
-          setTranscripts((prev) =>
-            prev.map((t) => (t.id === newTranscript.id ? newTranscript : t))
-          );
-
-          // Play translated audio with voice synthesis
-          await playVoiceTranslation(translatedText);
         }
-      } catch (error) {
-        console.error("Translation error:", error);
       }
+
+      // Update transcript with translation if available
+      if (translatedText) {
+        newTranscript.translated = translatedText;
+        setTranscripts((prev) =>
+          prev.map((t) => (t.id === newTranscript.id ? newTranscript : t))
+        );
+
+        // Play translated audio with voice synthesis
+        await playVoiceTranslation(translatedText);
+      }
+    } catch (error) {
+      console.error("Translation error:", error);
     }
 
     // Notify parent component
@@ -326,7 +360,7 @@ const LiveTranscription = ({
         </div>
         <div className="mt-3">
           <label className="text-sm text-muted-foreground mb-1.5 block">
-            Translate to
+            {selectedLanguage === "auto" ? "Auto-detect & translate to your language" : "Translate to"}
           </label>
           <Select 
             value={selectedLanguage} 
