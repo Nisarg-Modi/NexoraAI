@@ -7,7 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import LiveTranscription from './LiveTranscription';
-
+import { useVoiceActivity } from '@/hooks/useVoiceActivity';
+import { SpeakingBorder, VoiceWaveform } from './VoiceActivityIndicator';
 
 interface CallInterfaceProps {
   callId: string;
@@ -55,6 +56,13 @@ export const CallInterface = ({
 
   console.log('CallInterface - localStream:', !!localStream, 'remoteStreams:', remoteStreams.size);
 
+  // Voice activity detection
+  const { isSpeaking } = useVoiceActivity({
+    callId,
+    userId,
+    localStream,
+    remoteStreams,
+  });
   useEffect(() => {
     console.log('Initializing call with participants:', participantIds);
     initializeCall(participantIds);
@@ -213,7 +221,10 @@ export const CallInterface = ({
           {/* Main Video Area */}
           <div className="flex-1 p-4 flex items-center justify-center">
             {mainParticipant ? (
-              <div className="relative w-full h-full rounded-lg overflow-hidden bg-muted">
+              <SpeakingBorder 
+                isSpeaking={isSpeaking(mainParticipant[0])} 
+                className="relative w-full h-full rounded-lg overflow-hidden bg-muted"
+              >
                 {isVideo ? (
                   <video
                     ref={mainVideoRef}
@@ -230,16 +241,24 @@ export const CallInterface = ({
                       className="hidden"
                     />
                     <div className="w-full h-full flex items-center justify-center">
-                      <div className="w-32 h-32 rounded-full bg-primary/20 flex items-center justify-center">
+                      <div className="w-32 h-32 rounded-full bg-primary/20 flex items-center justify-center relative">
                         <Users className="w-16 h-16 text-primary" />
+                        {isSpeaking(mainParticipant[0]) && (
+                          <div className="absolute -bottom-2">
+                            <VoiceWaveform isSpeaking={true} bars={5} />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </>
                 )}
-                <div className="absolute bottom-4 left-4 bg-background/80 px-3 py-2 rounded text-base">
+                <div className="absolute bottom-4 left-4 bg-background/80 px-3 py-2 rounded text-base flex items-center gap-2">
                   {participantNames.get(mainParticipant[0]) || 'Participant'}
+                  {isSpeaking(mainParticipant[0]) && (
+                    <VoiceWaveform isSpeaking={true} bars={3} className="h-3" />
+                  )}
                 </div>
-              </div>
+              </SpeakingBorder>
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="text-center space-y-4">
@@ -254,7 +273,10 @@ export const CallInterface = ({
           <div className="px-4 pb-4">
             <div className="flex gap-2 overflow-x-auto pb-2">{/* ... keep existing code */}
           {/* Local Video Thumbnail */}
-          <div className="relative flex-shrink-0 w-32 h-24 rounded-lg overflow-hidden bg-muted border-2 border-primary">
+          <SpeakingBorder 
+            isSpeaking={isSpeaking(userId)} 
+            className="relative flex-shrink-0 w-32 h-24 rounded-lg overflow-hidden bg-muted border-2 border-primary"
+          >
             {isVideo ? (
               <video
                 ref={localVideoRef}
@@ -265,19 +287,31 @@ export const CallInterface = ({
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center relative">
                   <Users className="w-6 h-6 text-primary" />
+                  {isSpeaking(userId) && (
+                    <div className="absolute -bottom-1">
+                      <VoiceWaveform isSpeaking={true} bars={3} className="h-2" />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
-            <div className="absolute bottom-1 left-1 bg-background/80 px-2 py-0.5 rounded text-xs">
+            <div className="absolute bottom-1 left-1 bg-background/80 px-2 py-0.5 rounded text-xs flex items-center gap-1">
               You
+              {isSpeaking(userId) && (
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              )}
             </div>
-          </div>
+          </SpeakingBorder>
 
           {/* Other Remote Video Thumbnails */}
           {Array.from(remoteStreams.entries()).slice(1).map(([participantId, stream]) => (
-            <div key={participantId} className="relative flex-shrink-0 w-32 h-24 rounded-lg overflow-hidden bg-muted">
+            <SpeakingBorder 
+              key={participantId} 
+              isSpeaking={isSpeaking(participantId)}
+              className="relative flex-shrink-0 w-32 h-24 rounded-lg overflow-hidden bg-muted"
+            >
               {isVideo ? (
                 <video
                   ref={(el) => {
@@ -306,15 +340,23 @@ export const CallInterface = ({
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center relative">
                     <Users className="w-6 h-6 text-primary" />
+                    {isSpeaking(participantId) && (
+                      <div className="absolute -bottom-1">
+                        <VoiceWaveform isSpeaking={true} bars={3} className="h-2" />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
-              <div className="absolute bottom-1 left-1 bg-background/80 px-2 py-0.5 rounded text-xs">
+              <div className="absolute bottom-1 left-1 bg-background/80 px-2 py-0.5 rounded text-xs flex items-center gap-1">
                 {participantNames.get(participantId) || 'Unknown'}
+                {isSpeaking(participantId) && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                )}
               </div>
-            </div>
+            </SpeakingBorder>
           ))}
 
           {/* Empty slots for participants not yet connected */}
