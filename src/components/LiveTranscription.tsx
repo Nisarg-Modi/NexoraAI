@@ -1,12 +1,35 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mic, MicOff, Languages } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AudioRecorder, encodeAudioForAPI } from "@/utils/audioRecorder";
 import { supabase } from "@/integrations/supabase/client";
+
+const availableLanguages = [
+  { code: "en", name: "English" },
+  { code: "es", name: "Spanish" },
+  { code: "fr", name: "French" },
+  { code: "de", name: "German" },
+  { code: "it", name: "Italian" },
+  { code: "pt", name: "Portuguese" },
+  { code: "zh", name: "Chinese" },
+  { code: "ja", name: "Japanese" },
+  { code: "ko", name: "Korean" },
+  { code: "ar", name: "Arabic" },
+  { code: "hi", name: "Hindi" },
+  { code: "ru", name: "Russian" },
+  { code: "nl", name: "Dutch" },
+  { code: "pl", name: "Polish" },
+  { code: "tr", name: "Turkish" },
+  { code: "vi", name: "Vietnamese" },
+  { code: "th", name: "Thai" },
+  { code: "id", name: "Indonesian" },
+  { code: "sv", name: "Swedish" },
+  { code: "da", name: "Danish" },
+];
 
 interface Transcript {
   id: string;
@@ -27,10 +50,11 @@ interface LiveTranscriptionProps {
 const LiveTranscription = ({
   userId,
   userName,
-  targetLanguage = "en",
+  targetLanguage: initialTargetLanguage = "en",
   enabled = true,
   onTranscript,
 }: LiveTranscriptionProps) => {
+  const [selectedLanguage, setSelectedLanguage] = useState(initialTargetLanguage);
   const { toast } = useToast();
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -189,12 +213,12 @@ const LiveTranscription = ({
 
     // Translate if needed
     let translatedText: string | undefined;
-    if (targetLanguage !== "en") {
+    if (selectedLanguage !== "en") {
       try {
         const { data, error } = await supabase.functions.invoke("translate-message", {
           body: {
             text,
-            targetLanguage,
+            targetLanguage: selectedLanguage,
           },
         });
 
@@ -228,37 +252,49 @@ const LiveTranscription = ({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
             <Languages className="w-5 h-5" />
             Live Transcription
           </CardTitle>
-          <div className="flex items-center gap-2">
-            {targetLanguage !== "en" && (
-              <Badge variant="secondary">{targetLanguage.toUpperCase()}</Badge>
+          <Button
+            variant={isRecording ? "destructive" : "default"}
+            size="sm"
+            onClick={toggleRecording}
+            disabled={isConnecting}
+          >
+            {isConnecting ? (
+              <>Connecting...</>
+            ) : isRecording ? (
+              <>
+                <MicOff className="w-4 h-4 mr-2" />
+                Stop
+              </>
+            ) : (
+              <>
+                <Mic className="w-4 h-4 mr-2" />
+                Start
+              </>
             )}
-            <Button
-              variant={isRecording ? "destructive" : "default"}
-              size="sm"
-              onClick={toggleRecording}
-              disabled={isConnecting}
-            >
-              {isConnecting ? (
-                <>Connecting...</>
-              ) : isRecording ? (
-                <>
-                  <MicOff className="w-4 h-4 mr-2" />
-                  Stop
-                </>
-              ) : (
-                <>
-                  <Mic className="w-4 h-4 mr-2" />
-                  Start
-                </>
-              )}
-            </Button>
-          </div>
+          </Button>
+        </div>
+        <div className="mt-3">
+          <label className="text-sm text-muted-foreground mb-1.5 block">
+            Translate to
+          </label>
+          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select language" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableLanguages.map((lang) => (
+                <SelectItem key={lang.code} value={lang.code}>
+                  {lang.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
       <CardContent>
