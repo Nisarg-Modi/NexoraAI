@@ -32,12 +32,18 @@ const availableLanguages = [
   { code: "da", name: "Danish" },
 ];
 
+const getLanguageName = (code: string): string => {
+  const lang = availableLanguages.find(l => l.code === code);
+  return lang?.name || code.toUpperCase();
+};
+
 interface Transcript {
   id: string;
   speaker: string;
   text: string;
   timestamp: Date;
   translated?: string;
+  detectedLanguage?: string;
 }
 
 interface LiveTranscriptionProps {
@@ -302,15 +308,22 @@ const LiveTranscription = ({
         }
       }
 
-      // Update transcript with translation if available
-      if (translatedText) {
-        newTranscript.translated = translatedText;
+      // Update transcript with translation and detected language if available
+      if (translatedText || detectedLanguage) {
+        if (translatedText) {
+          newTranscript.translated = translatedText;
+        }
+        if (detectedLanguage) {
+          newTranscript.detectedLanguage = getLanguageName(detectedLanguage);
+        }
         setTranscripts((prev) =>
           prev.map((t) => (t.id === newTranscript.id ? newTranscript : t))
         );
 
         // Play translated audio with voice synthesis
-        await playVoiceTranslation(translatedText);
+        if (translatedText) {
+          await playVoiceTranslation(translatedText);
+        }
       }
     } catch (error) {
       console.error("Translation error:", error);
@@ -396,7 +409,14 @@ const LiveTranscription = ({
                   className="p-3 bg-muted rounded-lg space-y-1"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{transcript.speaker}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{transcript.speaker}</span>
+                      {transcript.detectedLanguage && (
+                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                          {transcript.detectedLanguage}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-muted-foreground">
                       {transcript.timestamp.toLocaleTimeString()}
                     </span>
