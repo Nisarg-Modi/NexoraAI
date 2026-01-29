@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import LiveTranscription from './LiveTranscription';
 import { useVoiceActivity } from '@/hooks/useVoiceActivity';
 import { SpeakingBorder, VoiceWaveform } from './VoiceActivityIndicator';
+import { CallDurationTimer } from './CallDurationTimer';
 
 interface CallInterfaceProps {
   callId: string;
@@ -32,6 +33,7 @@ export const CallInterface = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [showTranscription, setShowTranscription] = useState(false);
+  const [callStartTime] = useState<Date>(new Date());
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
 
@@ -412,7 +414,9 @@ export const CallInterface = ({
               </Button>
             </div>
 
-            <div className="text-center mt-4">
+            <div className="flex items-center justify-center gap-3 mt-4">
+              <CallDurationTimer startTime={callStartTime} />
+              <span className="text-muted-foreground">•</span>
               <p className="text-sm text-muted-foreground">
                 {participantIds.length} participant{participantIds.length > 1 ? 's' : ''}
               </p>
