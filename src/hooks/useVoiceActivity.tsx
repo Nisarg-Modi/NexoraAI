@@ -25,6 +25,7 @@ export const useVoiceActivity = ({
   const animationFrameRef = useRef<number | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const remoteAnalysersRef = useRef<Map<string, { analyser: AnalyserNode; context: AudioContext }>>(new Map());
+  const remoteAnimationFrameRef = useRef<number | null>(null);
 
   // Threshold for voice activity detection (0-255, higher = less sensitive)
   const VOICE_THRESHOLD = 30;
@@ -147,7 +148,7 @@ export const useVoiceActivity = ({
         return hasChanges ? { ...prev, ...newState } : prev;
       });
 
-      requestAnimationFrame(checkRemoteActivity);
+      remoteAnimationFrameRef.current = requestAnimationFrame(checkRemoteActivity);
     };
 
     if (remoteStreams.size > 0) {
@@ -155,6 +156,10 @@ export const useVoiceActivity = ({
     }
 
     return () => {
+      if (remoteAnimationFrameRef.current) {
+        cancelAnimationFrame(remoteAnimationFrameRef.current);
+        remoteAnimationFrameRef.current = null;
+      }
       remoteAnalysersRef.current.forEach((analyserData) => {
         if (analyserData.context.state !== 'closed') {
           analyserData.context.close();
@@ -182,7 +187,7 @@ export const useVoiceActivity = ({
         const newSpeakingState: VoiceActivityState = {};
         
         Object.entries(state).forEach(([oderId, presences]) => {
-          if (oderId !== oderId && Array.isArray(presences)) {
+          if (userId !== oderId && Array.isArray(presences)) {
             const isSpeaking = presences.some((p: any) => p.speaking === true);
             newSpeakingState[oderId] = isSpeaking;
           }
