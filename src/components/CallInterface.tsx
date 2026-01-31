@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Users, Languages } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Users, Languages, Circle } from 'lucide-react';
+import { useCallRecording } from '@/hooks/useCallRecording';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useWebRTC } from '@/hooks/useWebRTC';
@@ -65,6 +66,18 @@ export const CallInterface = ({
     localStream,
     remoteStreams,
   });
+
+  // Call recording
+  const { isRecording, recordingDuration, toggleRecording } = useCallRecording({
+    localStream,
+    remoteStreams,
+  });
+
+  const formatRecordingDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
   useEffect(() => {
     console.log('Initializing call with participants:', participantIds);
     initializeCall(participantIds);
@@ -402,6 +415,21 @@ export const CallInterface = ({
                 title="Toggle Live Transcription"
               >
                 <Languages className="w-6 h-6" />
+              </Button>
+
+              <Button
+                size="lg"
+                variant={isRecording ? 'destructive' : 'secondary'}
+                onClick={toggleRecording}
+                className="rounded-full w-14 h-14 relative"
+                title={isRecording ? 'Stop Recording' : 'Start Recording'}
+              >
+                <Circle className={`w-6 h-6 ${isRecording ? 'fill-current animate-pulse' : ''}`} />
+                {isRecording && (
+                  <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full">
+                    {formatRecordingDuration(recordingDuration)}
+                  </span>
+                )}
               </Button>
 
               <Button
