@@ -13,35 +13,60 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
   const chunksRef = useRef<Blob[]>([]);
   const recordingStartTimeRef = useRef<Date | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const { toast } = useToast();
 
   const getMergedAudioStream = useCallback((): MediaStream | null => {
     try {
+      console.log('Creating merged audio stream...');
+      console.log('Local stream:', localStream ? 'available' : 'null');
+      console.log('Remote streams count:', remoteStreams.size);
+
+      // Close existing audio context if any
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+
       const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
       const destination = audioContext.createMediaStreamDestination();
+
+      let hasAudioTracks = false;
 
       // Add local audio track
       if (localStream) {
         const localAudioTracks = localStream.getAudioTracks();
+        console.log('Local audio tracks:', localAudioTracks.length);
         if (localAudioTracks.length > 0) {
           const localSource = audioContext.createMediaStreamSource(
             new MediaStream([localAudioTracks[0]])
           );
           localSource.connect(destination);
+          hasAudioTracks = true;
+          console.log('Added local audio track to recording');
         }
       }
 
       // Add all remote audio tracks
-      remoteStreams.forEach((stream) => {
+      remoteStreams.forEach((stream, id) => {
         const remoteAudioTracks = stream.getAudioTracks();
+        console.log(`Remote stream ${id} audio tracks:`, remoteAudioTracks.length);
         if (remoteAudioTracks.length > 0) {
           const remoteSource = audioContext.createMediaStreamSource(
             new MediaStream([remoteAudioTracks[0]])
           );
           remoteSource.connect(destination);
+          hasAudioTracks = true;
+          console.log(`Added remote audio track from ${id} to recording`);
         }
       });
 
+      if (!hasAudioTracks) {
+        console.warn('No audio tracks found for recording');
+        return null;
+      }
+
+      console.log('Merged audio stream created successfully');
       return destination.stream;
     } catch (error) {
       console.error('Error creating merged audio stream:', error);
@@ -49,7 +74,64 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
     }
   }, [localStream, remoteStreams]);
 
+  const downloadRecording = useCallback((blob: Blob, mimeType: string) => {
+    console.log('Attempting to download recording...');
+    console.log('Blob size:', blob.size, 'bytes');
+    console.log('MIME type:', mimeType);
+
+    if (blob.size === 0) {
+      console.error('Recording blob is empty');
+      toast({
+        title: 'Recording Failed',
+        description: 'No audio data was captured. Please try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const extension = mimeType.includes('webm') ? 'webm' : 'm4a';
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `call-recording-${timestamp}.${extension}`;
+
+      console.log('Creating download for:', filename);
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = filename;
+      
+      document.body.appendChild(a);
+      
+      // Use a small timeout to ensure the element is in the DOM
+      setTimeout(() => {
+        a.click();
+        
+        // Clean up after a delay
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          console.log('Download initiated and cleanup complete');
+        }, 100);
+      }, 0);
+
+      toast({
+        title: 'Recording Saved',
+        description: `Saved as ${filename}`,
+      });
+    } catch (error) {
+      console.error('Error downloading recording:', error);
+      toast({
+        title: 'Download Failed',
+        description: 'Failed to save the recording. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
+
   const startRecording = useCallback(() => {
+    console.log('Starting recording...');
     const mergedStream = getMergedAudioStream();
     
     if (!mergedStream) {
@@ -63,11 +145,18 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
 
     try {
       // Check for supported MIME types
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm')
-        ? 'audio/webm'
-        : 'audio/mp4';
+      let mimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+        mimeType = 'audio/webm';
+      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        mimeType = 'audio/mp4';
+      } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+        mimeType = 'audio/ogg';
+      }
+
+      console.log('Using MIME type:', mimeType);
 
       const mediaRecorder = new MediaRecorder(mergedStream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
@@ -75,14 +164,20 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
       recordingStartTimeRef.current = new Date();
 
       mediaRecorder.ondataavailable = (event) => {
+        console.log('Data available:', event.data.size, 'bytes');
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
         }
       };
 
       mediaRecorder.onstop = () => {
+        console.log('MediaRecorder stopped, chunks collected:', chunksRef.current.length);
+        const totalSize = chunksRef.current.reduce((acc, chunk) => acc + chunk.size, 0);
+        console.log('Total recorded size:', totalSize, 'bytes');
+        
         const blob = new Blob(chunksRef.current, { type: mimeType });
         downloadRecording(blob, mimeType);
+        
         chunksRef.current = [];
         recordingStartTimeRef.current = null;
         setRecordingDuration(0);
@@ -91,9 +186,15 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
           clearInterval(durationIntervalRef.current);
           durationIntervalRef.current = null;
         }
+
+        // Clean up audio context
+        if (audioContextRef.current) {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+        }
       };
 
-      mediaRecorder.onerror = (event) => {
+      mediaRecorder.onerror = (event: Event) => {
         console.error('MediaRecorder error:', event);
         toast({
           title: 'Recording Error',
@@ -106,6 +207,7 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
       // Request data every second for more reliable recording
       mediaRecorder.start(1000);
       setIsRecording(true);
+      console.log('MediaRecorder started');
 
       // Update duration counter
       durationIntervalRef.current = setInterval(() => {
@@ -129,10 +231,12 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
         variant: 'destructive',
       });
     }
-  }, [getMergedAudioStream, toast]);
+  }, [getMergedAudioStream, downloadRecording, toast]);
 
   const stopRecording = useCallback(() => {
+    console.log('Stopping recording...');
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      console.log('MediaRecorder state:', mediaRecorderRef.current.state);
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       
@@ -140,28 +244,10 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
         title: 'Recording Stopped',
         description: 'Your recording is being saved...',
       });
+    } else {
+      console.warn('MediaRecorder not active, cannot stop');
     }
   }, [toast]);
-
-  const downloadRecording = (blob: Blob, mimeType: string) => {
-    const extension = mimeType.includes('webm') ? 'webm' : 'm4a';
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `call-recording-${timestamp}.${extension}`;
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: 'Recording Saved',
-      description: `Saved as ${filename}`,
-    });
-  };
 
   const toggleRecording = useCallback(() => {
     if (isRecording) {
