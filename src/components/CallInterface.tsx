@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Users, Languages, Circle } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Users, Languages, Circle, Monitor, MonitorOff } from 'lucide-react';
 import { useCallRecording } from '@/hooks/useCallRecording';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -44,9 +44,11 @@ export const CallInterface = ({
     localStream,
     remoteStreams,
     isConnecting,
+    isScreenSharing,
     initializeCall,
     toggleAudio,
     toggleVideo,
+    toggleScreenShare,
     endCall,
   } = useWebRTC({
     callId,
@@ -117,6 +119,20 @@ export const CallInterface = ({
     toast({
       description: newState ? 'Camera on' : 'Camera off',
     });
+  };
+
+  const handleToggleScreenShare = async () => {
+    const result = await toggleScreenShare();
+    if (result) {
+      toast({
+        description: 'Screen sharing started',
+      });
+    } else if (!isScreenSharing) {
+      // Only show error if we tried to start (not stop)
+      toast({
+        description: 'Screen sharing stopped',
+      });
+    }
   };
 
   // Get the first remote participant for main view - memoized to prevent unnecessary re-renders
@@ -397,14 +413,26 @@ export const CallInterface = ({
               </Button>
 
               {isVideo && (
-                <Button
-                  size="lg"
-                  variant={isVideoOff ? 'destructive' : 'secondary'}
-                  onClick={handleToggleVideo}
-                  className="rounded-full w-14 h-14"
-                >
-                  {isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
-                </Button>
+                <>
+                  <Button
+                    size="lg"
+                    variant={isVideoOff ? 'destructive' : 'secondary'}
+                    onClick={handleToggleVideo}
+                    className="rounded-full w-14 h-14"
+                  >
+                    {isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
+                  </Button>
+
+                  <Button
+                    size="lg"
+                    variant={isScreenSharing ? 'default' : 'secondary'}
+                    onClick={handleToggleScreenShare}
+                    className="rounded-full w-14 h-14"
+                    title={isScreenSharing ? 'Stop Screen Share' : 'Share Screen'}
+                  >
+                    {isScreenSharing ? <MonitorOff className="w-6 h-6" /> : <Monitor className="w-6 h-6" />}
+                  </Button>
+                </>
               )}
 
               <Button

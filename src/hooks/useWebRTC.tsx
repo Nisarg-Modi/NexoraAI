@@ -12,9 +12,12 @@ export const useWebRTC = ({ callId, userId, isVideo, onRemoteStream }: WebRTCCon
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const pendingIceCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const channelRef = useRef<any>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
+  const originalVideoTrackRef = useRef<MediaStreamTrack | null>(null);
 
   const configuration: RTCConfiguration = {
     iceServers: [
@@ -399,7 +402,130 @@ export const useWebRTC = ({ callId, userId, isVideo, onRemoteStream }: WebRTCCon
     return false;
   };
 
+  const startScreenShare = async () => {
+    if (!isVideo) {
+      console.warn('Screen sharing is only available in video calls');
+      return false;
+    }
+
+    try {
+      console.log('🖥️ Starting screen share...');
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          cursor: 'always',
+          displaySurface: 'monitor',
+        } as MediaTrackConstraints,
+        audio: false,
+      });
+
+      const screenTrack = screenStream.getVideoTracks()[0];
+      if (!screenTrack) {
+        console.error('No video track in screen share stream');
+        return false;
+      }
+
+      screenStreamRef.current = screenStream;
+
+      // Save the original video track so we can restore it later
+      if (localStream) {
+        const originalVideoTrack = localStream.getVideoTracks()[0];
+        if (originalVideoTrack) {
+          originalVideoTrackRef.current = originalVideoTrack;
+        }
+      }
+
+      // Replace the video track in all peer connections
+      peerConnections.current.forEach((pc, participantId) => {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          console.log('🔄 Replacing video track for:', participantId);
+          sender.replaceTrack(screenTrack);
+        }
+      });
+
+      // Update local stream to show screen share in preview
+      if (localStream) {
+        const oldVideoTrack = localStream.getVideoTracks()[0];
+        if (oldVideoTrack) {
+          localStream.removeTrack(oldVideoTrack);
+        }
+        localStream.addTrack(screenTrack);
+        setLocalStream(new MediaStream(localStream.getTracks()));
+      }
+
+      // Handle when user stops sharing via browser UI
+      screenTrack.onended = () => {
+        console.log('🖥️ Screen share ended by user');
+        stopScreenShare();
+      };
+
+      setIsScreenSharing(true);
+      console.log('✅ Screen sharing started');
+      return true;
+    } catch (error) {
+      console.error('Error starting screen share:', error);
+      return false;
+    }
+  };
+
+  const stopScreenShare = async () => {
+    if (!screenStreamRef.current) {
+      console.warn('No active screen share to stop');
+      return;
+    }
+
+    try {
+      console.log('🖥️ Stopping screen share...');
+
+      // Stop the screen share stream
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+
+      // Restore the original video track
+      const originalTrack = originalVideoTrackRef.current;
+      if (originalTrack && localStream) {
+        // Replace screen track with original camera track in peer connections
+        peerConnections.current.forEach((pc, participantId) => {
+          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+          if (sender) {
+            console.log('🔄 Restoring video track for:', participantId);
+            sender.replaceTrack(originalTrack);
+          }
+        });
+
+        // Update local stream
+        const screenTrack = localStream.getVideoTracks()[0];
+        if (screenTrack) {
+          localStream.removeTrack(screenTrack);
+        }
+        localStream.addTrack(originalTrack);
+        setLocalStream(new MediaStream(localStream.getTracks()));
+      }
+
+      originalVideoTrackRef.current = null;
+      setIsScreenSharing(false);
+      console.log('✅ Screen sharing stopped, camera restored');
+    } catch (error) {
+      console.error('Error stopping screen share:', error);
+    }
+  };
+
+  const toggleScreenShare = async () => {
+    if (isScreenSharing) {
+      await stopScreenShare();
+      return false;
+    } else {
+      return await startScreenShare();
+    }
+  };
+
   const endCall = () => {
+    // Stop screen share if active
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+    }
+
     // Stop local stream
     localStream?.getTracks().forEach(track => track.stop());
     setLocalStream(null);
@@ -416,6 +542,8 @@ export const useWebRTC = ({ callId, userId, isVideo, onRemoteStream }: WebRTCCon
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
+
+    setIsScreenSharing(false);
   };
 
   useEffect(() => {
@@ -428,9 +556,11 @@ export const useWebRTC = ({ callId, userId, isVideo, onRemoteStream }: WebRTCCon
     localStream,
     remoteStreams,
     isConnecting,
+    isScreenSharing,
     initializeCall,
     toggleAudio,
     toggleVideo,
+    toggleScreenShare,
     endCall,
   };
 };
