@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
+import { createObjectUrlDownload } from '@/utils/downloadBlob';
 
 interface UseCallRecordingProps {
   localStream: MediaStream | null;
@@ -14,6 +16,8 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
   const recordingStartTimeRef = useRef<Date | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const activeObjectUrlRef = useRef<string | null>(null);
+  const revokeUrlTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   const getMergedAudioStream = useCallback((): MediaStream | null => {
@@ -90,35 +94,49 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
     }
 
     try {
-      const extension = mimeType.includes('webm') ? 'webm' : 'm4a';
+      const extension = mimeType.includes('webm') ? 'webm' : mimeType.includes('ogg') ? 'ogg' : 'm4a';
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `call-recording-${timestamp}.${extension}`;
 
       console.log('Creating download for:', filename);
 
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = filename;
-      
-      document.body.appendChild(a);
-      
-      // Use a small timeout to ensure the element is in the DOM
-      setTimeout(() => {
-        a.click();
-        
-        // Clean up after a delay
-        setTimeout(() => {
-          document.body.removeChild(a);
+      // Clean up any previous URL (avoid leaking memory)
+      if (revokeUrlTimeoutRef.current) {
+        clearTimeout(revokeUrlTimeoutRef.current);
+        revokeUrlTimeoutRef.current = null;
+      }
+      if (activeObjectUrlRef.current) {
+        try {
+          URL.revokeObjectURL(activeObjectUrlRef.current);
+        } catch {
+          // ignore
+        }
+        activeObjectUrlRef.current = null;
+      }
+
+      const { url, triggerDownload } = createObjectUrlDownload(blob, filename);
+      activeObjectUrlRef.current = url;
+
+      // IMPORTANT: Do NOT revoke immediately — some browsers need time to start the download.
+      // Keep it alive long enough for the download to begin, and provide a manual fallback.
+      triggerDownload();
+
+      revokeUrlTimeoutRef.current = setTimeout(() => {
+        if (activeObjectUrlRef.current === url) {
           URL.revokeObjectURL(url);
-          console.log('Download initiated and cleanup complete');
-        }, 100);
-      }, 0);
+          activeObjectUrlRef.current = null;
+        }
+        revokeUrlTimeoutRef.current = null;
+      }, 60_000);
 
       toast({
-        title: 'Recording Saved',
-        description: `Saved as ${filename}`,
+        title: 'Recording Ready',
+        description: 'If the download did not start, tap Open to save it from a new tab.',
+        action: (
+          <ToastAction altText="Open recording" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}>
+            Open
+          </ToastAction>
+        ),
       });
     } catch (error) {
       console.error('Error downloading recording:', error);
