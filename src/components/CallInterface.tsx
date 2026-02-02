@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Users, Languages, Circle, Monitor, MonitorOff } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Users, Languages, Circle, Monitor, MonitorOff, PictureInPicture2, PictureInPictureIcon } from 'lucide-react';
 import { useCallRecording } from '@/hooks/useCallRecording';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -35,6 +35,7 @@ export const CallInterface = ({
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [showTranscription, setShowTranscription] = useState(false);
   const [callStartTime] = useState<Date>(new Date());
+  const [isPiPActive, setIsPiPActive] = useState(false);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
 
@@ -134,6 +135,48 @@ export const CallInterface = ({
       });
     }
   };
+
+  const handleTogglePiP = async () => {
+    const videoEl = mainVideoRef.current;
+    
+    if (!videoEl || !isVideo) {
+      toast({
+        description: 'Picture-in-Picture is only available for video calls',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+        setIsPiPActive(false);
+        toast({ description: 'Picture-in-Picture closed' });
+      } else if (document.pictureInPictureEnabled) {
+        await videoEl.requestPictureInPicture();
+        setIsPiPActive(true);
+        toast({ description: 'Picture-in-Picture enabled' });
+      } else {
+        toast({
+          description: 'Picture-in-Picture is not supported in this browser',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('PiP error:', error);
+      toast({
+        description: 'Failed to toggle Picture-in-Picture',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Listen for PiP exit events
+  useEffect(() => {
+    const handlePiPExit = () => setIsPiPActive(false);
+    document.addEventListener('leavepictureinpicture', handlePiPExit);
+    return () => document.removeEventListener('leavepictureinpicture', handlePiPExit);
+  }, []);
 
   // Get the first remote participant for main view - memoized to prevent unnecessary re-renders
   const mainParticipant = useMemo(() => {
@@ -431,6 +474,16 @@ export const CallInterface = ({
                     title={isScreenSharing ? 'Stop Screen Share' : 'Share Screen'}
                   >
                     {isScreenSharing ? <MonitorOff className="w-6 h-6" /> : <Monitor className="w-6 h-6" />}
+                  </Button>
+
+                  <Button
+                    size="lg"
+                    variant={isPiPActive ? 'default' : 'secondary'}
+                    onClick={handleTogglePiP}
+                    className="rounded-full w-14 h-14"
+                    title={isPiPActive ? 'Exit Picture-in-Picture' : 'Picture-in-Picture'}
+                  >
+                    {isPiPActive ? <PictureInPictureIcon className="w-6 h-6" /> : <PictureInPicture2 className="w-6 h-6" />}
                   </Button>
                 </>
               )}
