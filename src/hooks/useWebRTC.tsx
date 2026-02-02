@@ -18,6 +18,7 @@ export const useWebRTC = ({ callId, userId, isVideo, onRemoteStream }: WebRTCCon
   const channelRef = useRef<any>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const originalVideoTrackRef = useRef<MediaStreamTrack | null>(null);
+  const screenAudioSendersRef = useRef<Map<string, RTCRtpSender>>(new Map());
 
   const configuration: RTCConfiguration = {
     iceServers: [
@@ -409,13 +410,17 @@ export const useWebRTC = ({ callId, userId, isVideo, onRemoteStream }: WebRTCCon
     }
 
     try {
-      console.log('🖥️ Starting screen share...');
+      console.log('🖥️ Starting screen share with audio...');
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           cursor: 'always',
           displaySurface: 'monitor',
         } as MediaTrackConstraints,
-        audio: false,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       });
 
       const screenTrack = screenStream.getVideoTracks()[0];
@@ -442,6 +447,21 @@ export const useWebRTC = ({ callId, userId, isVideo, onRemoteStream }: WebRTCCon
           sender.replaceTrack(screenTrack);
         }
       });
+
+      // Handle system audio from screen share (if user selected "Share audio")
+      const screenAudioTrack = screenStream.getAudioTracks()[0];
+      if (screenAudioTrack) {
+        console.log('🔊 Screen share includes system audio');
+        // Add the screen audio track to all peer connections and track the senders
+        screenAudioSendersRef.current.clear();
+        peerConnections.current.forEach((pc, participantId) => {
+          console.log('➕ Adding screen audio track for:', participantId);
+          const sender = pc.addTrack(screenAudioTrack, screenStream);
+          screenAudioSendersRef.current.set(participantId, sender);
+        });
+      } else {
+        console.log('ℹ️ No system audio selected for screen share');
+      }
 
       // Update local stream to show screen share in preview
       if (localStream) {
@@ -476,6 +496,20 @@ export const useWebRTC = ({ callId, userId, isVideo, onRemoteStream }: WebRTCCon
 
     try {
       console.log('🖥️ Stopping screen share...');
+
+      // Remove screen audio senders from peer connections
+      screenAudioSendersRef.current.forEach((sender, participantId) => {
+        const pc = peerConnections.current.get(participantId);
+        if (pc) {
+          console.log('🔇 Removing screen audio track for:', participantId);
+          try {
+            pc.removeTrack(sender);
+          } catch (e) {
+            console.warn('Could not remove screen audio sender:', e);
+          }
+        }
+      });
+      screenAudioSendersRef.current.clear();
 
       // Stop the screen share stream
       screenStreamRef.current.getTracks().forEach(track => track.stop());
