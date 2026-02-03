@@ -11,7 +11,8 @@ import LiveTranscription from './LiveTranscription';
 import { useVoiceActivity } from '@/hooks/useVoiceActivity';
 import { SpeakingBorder, VoiceWaveform } from './VoiceActivityIndicator';
 import { CallDurationTimer } from './CallDurationTimer';
-
+import { useVideoEffects, VideoEffect } from '@/hooks/useVideoEffects';
+import { BackgroundEffectSelector } from './BackgroundEffectSelector';
 interface CallInterfaceProps {
   callId: string;
   userId: string;
@@ -36,6 +37,7 @@ export const CallInterface = ({
   const [showTranscription, setShowTranscription] = useState(false);
   const [callStartTime] = useState<Date>(new Date());
   const [isPiPActive, setIsPiPActive] = useState(false);
+  const [backgroundEffect, setBackgroundEffect] = useState<VideoEffect>('none');
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
 
@@ -62,6 +64,13 @@ export const CallInterface = ({
 
   console.log('CallInterface - localStream:', !!localStream, 'remoteStreams:', remoteStreams.size);
 
+  // Video effects (background blur)
+  const { processedStream, isLoading: isEffectLoading, error: effectError } = useVideoEffects({
+    inputStream: localStream,
+    effect: backgroundEffect,
+    enabled: isVideo && backgroundEffect !== 'none',
+  });
+
   // Voice activity detection
   const { isSpeaking } = useVoiceActivity({
     callId,
@@ -87,24 +96,28 @@ export const CallInterface = ({
   }, []);
 
   useEffect(() => {
-    if (localStream && localVideoRef.current) {
+    // Use processed stream (with effects) if available, otherwise use raw local stream
+    const streamToUse = processedStream || localStream;
+    
+    if (streamToUse && localVideoRef.current) {
       console.log('🎥 Setting local stream to video element');
       console.log('📊 Local stream state:', {
-        active: localStream.active,
-        tracks: localStream.getTracks().map(t => ({
+        active: streamToUse.active,
+        tracks: streamToUse.getTracks().map(t => ({
           kind: t.kind,
           enabled: t.enabled,
           readyState: t.readyState,
           muted: t.muted
-        }))
+        })),
+        hasEffect: backgroundEffect !== 'none'
       });
       
-      localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.srcObject = streamToUse;
       localVideoRef.current.muted = true; // Always mute own video
       // Let autoplay handle playback
       console.log('✅ Local stream attached, autoplay enabled');
     }
-  }, [localStream]);
+  }, [processedStream, localStream, backgroundEffect]);
 
   const handleToggleMute = () => {
     const newState = toggleAudio();
@@ -132,6 +145,25 @@ export const CallInterface = ({
       // Only show error if we tried to start (not stop)
       toast({
         description: 'Screen sharing stopped',
+      });
+    }
+  };
+
+  const handleEffectChange = (effect: VideoEffect) => {
+    setBackgroundEffect(effect);
+    if (effectError) {
+      toast({
+        description: effectError,
+        variant: 'destructive',
+      });
+    } else {
+      const effectLabels: Record<VideoEffect, string> = {
+        'none': 'Background effect disabled',
+        'blur': 'Background blur enabled',
+        'blur-strong': 'Strong background blur enabled',
+      };
+      toast({
+        description: effectLabels[effect],
       });
     }
   };
@@ -485,6 +517,13 @@ export const CallInterface = ({
                   >
                     {isPiPActive ? <PictureInPictureIcon className="w-6 h-6" /> : <PictureInPicture2 className="w-6 h-6" />}
                   </Button>
+
+                  <BackgroundEffectSelector
+                    currentEffect={backgroundEffect}
+                    onEffectChange={handleEffectChange}
+                    isLoading={isEffectLoading}
+                    disabled={isScreenSharing}
+                  />
                 </>
               )}
 
