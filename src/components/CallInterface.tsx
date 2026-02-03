@@ -80,9 +80,11 @@ export const CallInterface = ({
   });
 
   // Call recording
-  const { isRecording, recordingDuration, toggleRecording } = useCallRecording({
+  const { isRecording, isSaving, recordingDuration, toggleRecording } = useCallRecording({
     localStream,
     remoteStreams,
+    callId,
+    participantNames,
   });
 
   const formatRecordingDuration = (seconds: number): string => {

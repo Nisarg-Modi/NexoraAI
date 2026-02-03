@@ -269,6 +269,50 @@ export type Database = {
           },
         ]
       }
+      call_recordings: {
+        Row: {
+          call_id: string | null
+          created_at: string
+          duration: number
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          participants: string[] | null
+          user_id: string
+        }
+        Insert: {
+          call_id?: string | null
+          created_at?: string
+          duration?: number
+          file_name: string
+          file_path: string
+          file_size?: number
+          id?: string
+          participants?: string[] | null
+          user_id: string
+        }
+        Update: {
+          call_id?: string | null
+          created_at?: string
+          duration?: number
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          participants?: string[] | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_recordings_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calls: {
         Row: {
           call_type: string

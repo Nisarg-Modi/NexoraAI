@@ -2,15 +2,24 @@ import { useState, useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { createObjectUrlDownload } from '@/utils/downloadBlob';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UseCallRecordingProps {
   localStream: MediaStream | null;
   remoteStreams: Map<string, MediaStream>;
+  callId?: string;
+  participantNames?: Map<string, string>;
 }
 
-export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordingProps) => {
+export const useCallRecording = ({ 
+  localStream, 
+  remoteStreams, 
+  callId,
+  participantNames 
+}: UseCallRecordingProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recordingStartTimeRef = useRef<Date | null>(null);
@@ -18,6 +27,7 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
   const audioContextRef = useRef<AudioContext | null>(null);
   const activeObjectUrlRef = useRef<string | null>(null);
   const revokeUrlTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const finalDurationRef = useRef<number>(0);
   const { toast } = useToast();
 
   const getMergedAudioStream = useCallback((): MediaStream | null => {
@@ -77,6 +87,74 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
       return null;
     }
   }, [localStream, remoteStreams]);
+
+  const saveRecordingToStorage = useCallback(async (blob: Blob, mimeType: string, duration: number) => {
+    try {
+      setIsSaving(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('No authenticated user');
+        return false;
+      }
+
+      const extension = mimeType.includes('webm') ? 'webm' : mimeType.includes('ogg') ? 'ogg' : 'm4a';
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `call-recording-${timestamp}.${extension}`;
+      const filePath = `${user.id}/${filename}`;
+
+      console.log('Uploading recording to storage:', filePath);
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('call-recordings')
+        .upload(filePath, blob, {
+          contentType: mimeType,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error('Error uploading recording:', uploadError);
+        throw uploadError;
+      }
+
+      // Get participant names for metadata
+      const participants: string[] = [];
+      if (participantNames) {
+        participantNames.forEach((name) => {
+          participants.push(name);
+        });
+      }
+
+      // Save metadata to database
+      const { error: dbError } = await supabase
+        .from('call_recordings')
+        .insert({
+          user_id: user.id,
+          call_id: callId || null,
+          file_name: filename,
+          file_path: filePath,
+          duration: duration,
+          file_size: blob.size,
+          participants: participants,
+        });
+
+      if (dbError) {
+        console.error('Error saving recording metadata:', dbError);
+        // Try to clean up the uploaded file
+        await supabase.storage.from('call-recordings').remove([filePath]);
+        throw dbError;
+      }
+
+      console.log('Recording saved successfully');
+      return true;
+    } catch (error) {
+      console.error('Failed to save recording:', error);
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [callId, participantNames]);
 
   const downloadRecording = useCallback((blob: Blob, mimeType: string) => {
     console.log('Attempting to download recording...');
@@ -180,6 +258,7 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
       recordingStartTimeRef.current = new Date();
+      finalDurationRef.current = 0;
 
       mediaRecorder.ondataavailable = (event) => {
         console.log('Data available:', event.data.size, 'bytes');
@@ -188,13 +267,26 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
         }
       };
 
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         console.log('MediaRecorder stopped, chunks collected:', chunksRef.current.length);
         const totalSize = chunksRef.current.reduce((acc, chunk) => acc + chunk.size, 0);
         console.log('Total recorded size:', totalSize, 'bytes');
         
         const blob = new Blob(chunksRef.current, { type: mimeType });
-        downloadRecording(blob, mimeType);
+        const duration = finalDurationRef.current;
+        
+        // Save to cloud storage
+        const saved = await saveRecordingToStorage(blob, mimeType, duration);
+        
+        if (saved) {
+          toast({
+            title: 'Recording Saved',
+            description: 'Your recording has been saved to your library.',
+          });
+        } else {
+          // Fallback to download if cloud save fails
+          downloadRecording(blob, mimeType);
+        }
         
         chunksRef.current = [];
         recordingStartTimeRef.current = null;
@@ -234,6 +326,7 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
             (Date.now() - recordingStartTimeRef.current.getTime()) / 1000
           );
           setRecordingDuration(elapsed);
+          finalDurationRef.current = elapsed;
         }
       }, 1000);
 
@@ -249,7 +342,7 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
         variant: 'destructive',
       });
     }
-  }, [getMergedAudioStream, downloadRecording, toast]);
+  }, [getMergedAudioStream, downloadRecording, saveRecordingToStorage, toast]);
 
   const stopRecording = useCallback(() => {
     console.log('Stopping recording...');
@@ -277,6 +370,7 @@ export const useCallRecording = ({ localStream, remoteStreams }: UseCallRecordin
 
   return {
     isRecording,
+    isSaving,
     recordingDuration,
     startRecording,
     stopRecording,
