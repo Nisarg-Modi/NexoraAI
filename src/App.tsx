@@ -16,6 +16,7 @@ const VoiceProfiles = lazy(() => import("./pages/VoiceProfiles"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 const SharedDocument = lazy(() => import("./pages/SharedDocument"));
 const Install = lazy(() => import("./pages/Install"));
+const Recordings = lazy(() => import("./pages/Recordings"));
 
 const queryClient = new QueryClient();
 
@@ -80,6 +81,14 @@ const AppContent = () => {
           <Route path="/profile/:username" element={<PublicProfile />} />
           <Route path="/shared-document" element={<SharedDocument />} />
           <Route path="/install" element={<Install />} />
+          <Route
+            path="/recordings"
+            element={
+              <ProtectedRoute>
+                <Recordings />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
