@@ -28,7 +28,8 @@ export const OptimizedImage = ({
       alt={alt}
       loading={priority ? "eager" : "lazy"}
       decoding="async"
-      fetchPriority={priority ? "high" : "auto"}
+      // @ts-ignore - fetchpriority is a valid HTML attribute but not yet in React types
+      fetchpriority={priority ? "high" : "auto"}
       sizes={sizes}
       className={cn(className)}
       {...props}
