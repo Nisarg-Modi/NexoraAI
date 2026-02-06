@@ -1631,6 +1631,10 @@ export type Database = {
         Args: { call_uuid: string; user_uuid: string }
         Returns: boolean
       }
+      is_community_member: {
+        Args: { community_uuid: string; user_uuid: string }
+        Returns: boolean
+      }
       is_conversation_participant: {
         Args: { conversation_uuid: string; user_uuid: string }
         Returns: boolean
