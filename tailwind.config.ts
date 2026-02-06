@@ -110,7 +110,6 @@ export default {
         "slide-up": "slide-up 0.5s ease-out",
         "float": "float 6s ease-in-out infinite",
         "logo-glow": "logo-glow 4s ease-in-out infinite",
-        "float": "float 6s ease-in-out infinite",
       },
     },
   },
