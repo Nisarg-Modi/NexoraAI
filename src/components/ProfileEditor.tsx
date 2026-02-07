@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Camera, Upload, User, Loader2, MessageSquare, Users, Calendar as CalendarIcon, Sparkles, CheckCircle2, MapPin, Twitter, Linkedin, Instagram, Globe } from "lucide-react";
+import { Camera, Upload, User, Loader2, MessageSquare, Users, Calendar as CalendarIcon, Sparkles, CheckCircle2, MapPin, Twitter, Linkedin, Instagram, Globe, Search } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -18,7 +18,10 @@ import { NotificationSettings } from "./NotificationSettings";
 import { DoNotDisturbSettings } from "./DoNotDisturbSettings";
 import { LanguageSettings } from "./LanguageSettings";
 import { BadgeRequestForm } from "./BadgeRequestForm";
+import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
+import { countries } from "@/data/countries";
 import { cn } from "@/lib/utils";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 interface QuickStats {
   contactsCount: number;
@@ -63,6 +66,8 @@ export const ProfileEditor = () => {
   const [uploading, setUploading] = useState(false);
   const [urlErrors, setUrlErrors] = useState<UrlErrors>({});
   const [stats, setStats] = useState<QuickStats>({ contactsCount: 0, conversationsCount: 0, meetingsCount: 0 });
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [locationSearch, setLocationSearch] = useState("");
   const [profile, setProfile] = useState({
     display_name: "",
     status: "",
@@ -494,13 +499,17 @@ export const ProfileEditor = () => {
                 {profile.date_of_birth ? format(profile.date_of_birth, "PPP") : <span>Pick your date of birth</span>}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 z-50" align="start">
+            <PopoverContent className="w-auto p-0 z-50 bg-background border border-border shadow-lg" align="start">
               <Calendar
                 mode="single"
                 selected={profile.date_of_birth || undefined}
                 onSelect={(date) => setProfile(prev => ({ ...prev, date_of_birth: date || null }))}
                 disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                captionLayout="dropdown"
+                fromYear={1920}
+                toYear={new Date().getFullYear()}
                 initialFocus
+                className="pointer-events-auto"
               />
             </PopoverContent>
           </Popover>
@@ -508,17 +517,51 @@ export const ProfileEditor = () => {
 
         <div className="space-y-2">
           <Label htmlFor="location">Location</Label>
-          <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="location"
-              value={profile.location}
-              onChange={(e) => setProfile(prev => ({ ...prev, location: e.target.value }))}
-              placeholder="City, Country"
-              maxLength={100}
-              className="pl-10"
-            />
-          </div>
+          <Popover open={locationOpen} onOpenChange={setLocationOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={locationOpen}
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !profile.location && "text-muted-foreground"
+                )}
+              >
+                <MapPin className="mr-2 h-4 w-4" />
+                {profile.location || "Select your country"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0 z-50 bg-background border border-border shadow-lg" align="start">
+              <Command className="bg-background">
+                <CommandInput 
+                  placeholder="Search country..." 
+                  value={locationSearch}
+                  onValueChange={setLocationSearch}
+                  className="border-0"
+                />
+                <CommandList className="max-h-60">
+                  <CommandEmpty>No country found.</CommandEmpty>
+                  <CommandGroup>
+                    {countries.map((country) => (
+                      <CommandItem
+                        key={country.code}
+                        value={country.name}
+                        onSelect={(value) => {
+                          setProfile(prev => ({ ...prev, location: value }));
+                          setLocationOpen(false);
+                          setLocationSearch("");
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <span>{country.name}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="space-y-2">
@@ -538,14 +581,28 @@ export const ProfileEditor = () => {
 
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
-          <Textarea
-            id="status"
-            value={profile.status}
-            onChange={(e) => setProfile(prev => ({ ...prev, status: e.target.value }))}
-            placeholder="What's on your mind?"
-            maxLength={150}
-            rows={2}
-          />
+          <div className="relative">
+            <Textarea
+              id="status"
+              value={profile.status}
+              onChange={(e) => setProfile(prev => ({ ...prev, status: e.target.value }))}
+              placeholder="What's on your mind? 😊"
+              maxLength={150}
+              rows={2}
+              className="pr-12"
+            />
+            <div className="absolute right-2 top-2">
+              <EmojiPickerButton
+                onEmojiSelect={(emoji) => {
+                  if (profile.status.length + emoji.length <= 150) {
+                    setProfile(prev => ({ ...prev, status: prev.status + emoji }));
+                  }
+                }}
+                size="sm"
+                className="h-8 w-8"
+              />
+            </div>
+          </div>
           <p className="text-xs text-muted-foreground">
             {profile.status.length}/150 characters
           </p>

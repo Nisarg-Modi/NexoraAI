@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Crown, Briefcase, Users, Loader2, Clock, Check, X, Trash2 } from "lucide-react";
+import { Crown, Briefcase, Users, Loader2, Clock, Check, X, Trash2, Sparkles, Stethoscope, Cog, Palette, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 import { BadgeType, badgeConfig } from "@/components/UserBadges";
 
@@ -151,11 +151,22 @@ export const BadgeRequestForm = () => {
         return <Briefcase className="h-4 w-4 text-blue-500" />;
       case 'partner':
         return <Users className="h-4 w-4 text-purple-500" />;
+      case 'influencer':
+        return <Sparkles className="h-4 w-4 text-pink-500" />;
+      case 'doctor':
+        return <Stethoscope className="h-4 w-4 text-green-500" />;
+      case 'engineer':
+        return <Cog className="h-4 w-4 text-slate-500" />;
+      case 'artist':
+        return <Palette className="h-4 w-4 text-rose-500" />;
+      case 'educator':
+        return <GraduationCap className="h-4 w-4 text-indigo-500" />;
     }
   };
 
   // Get available badges (not already owned and no pending request)
-  const availableBadges = (['premium', 'staff', 'partner'] as BadgeType[]).filter(badge => 
+  const allBadgeTypes: BadgeType[] = ['premium', 'staff', 'partner', 'influencer', 'doctor', 'engineer', 'artist', 'educator'];
+  const availableBadges = allBadgeTypes.filter(badge => 
     !userBadges.includes(badge) && 
     !requests.some(r => r.badge === badge && r.status === 'pending')
   );
@@ -209,7 +220,7 @@ export const BadgeRequestForm = () => {
                 <SelectTrigger>
                   <SelectValue placeholder="Choose a badge to request" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background border border-border shadow-lg z-50">
                   {availableBadges.includes('premium') && (
                     <SelectItem value="premium">
                       <div className="flex items-center gap-2">
@@ -231,6 +242,46 @@ export const BadgeRequestForm = () => {
                       <div className="flex items-center gap-2">
                         <Briefcase className="h-4 w-4 text-blue-500" />
                         Staff - For team members
+                      </div>
+                    </SelectItem>
+                  )}
+                  {availableBadges.includes('influencer') && (
+                    <SelectItem value="influencer">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-pink-500" />
+                        Influencer - For content creators
+                      </div>
+                    </SelectItem>
+                  )}
+                  {availableBadges.includes('doctor') && (
+                    <SelectItem value="doctor">
+                      <div className="flex items-center gap-2">
+                        <Stethoscope className="h-4 w-4 text-green-500" />
+                        Doctor - For medical professionals
+                      </div>
+                    </SelectItem>
+                  )}
+                  {availableBadges.includes('engineer') && (
+                    <SelectItem value="engineer">
+                      <div className="flex items-center gap-2">
+                        <Cog className="h-4 w-4 text-slate-500" />
+                        Engineer - For tech professionals
+                      </div>
+                    </SelectItem>
+                  )}
+                  {availableBadges.includes('artist') && (
+                    <SelectItem value="artist">
+                      <div className="flex items-center gap-2">
+                        <Palette className="h-4 w-4 text-rose-500" />
+                        Artist - For creative professionals
+                      </div>
+                    </SelectItem>
+                  )}
+                  {availableBadges.includes('educator') && (
+                    <SelectItem value="educator">
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="h-4 w-4 text-indigo-500" />
+                        Educator - For teachers and trainers
                       </div>
                     </SelectItem>
                   )}
@@ -263,7 +314,7 @@ export const BadgeRequestForm = () => {
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            {userBadges.length === 3 
+            {userBadges.length === allBadgeTypes.length 
               ? "You already have all available badges!"
               : "You have pending requests for all remaining badges."}
           </p>
