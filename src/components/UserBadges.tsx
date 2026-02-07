@@ -1,7 +1,7 @@
-import { Crown, Users, Briefcase } from "lucide-react";
+import { Crown, Users, Briefcase, Sparkles, Stethoscope, Cog, Palette, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type BadgeType = "premium" | "staff" | "partner";
+export type BadgeType = "premium" | "staff" | "partner" | "influencer" | "doctor" | "engineer" | "artist" | "educator";
 
 interface UserBadgesProps {
   badges: BadgeType[];
@@ -37,6 +37,41 @@ const badgeConfig: Record<BadgeType, {
     bgColor: "bg-purple-500/20",
     textColor: "text-purple-600 dark:text-purple-400",
     iconColor: "text-purple-500",
+  },
+  influencer: {
+    icon: Sparkles,
+    label: "Influencer",
+    bgColor: "bg-pink-500/20",
+    textColor: "text-pink-600 dark:text-pink-400",
+    iconColor: "text-pink-500",
+  },
+  doctor: {
+    icon: Stethoscope,
+    label: "Doctor",
+    bgColor: "bg-green-500/20",
+    textColor: "text-green-600 dark:text-green-400",
+    iconColor: "text-green-500",
+  },
+  engineer: {
+    icon: Cog,
+    label: "Engineer",
+    bgColor: "bg-slate-500/20",
+    textColor: "text-slate-600 dark:text-slate-400",
+    iconColor: "text-slate-500",
+  },
+  artist: {
+    icon: Palette,
+    label: "Artist",
+    bgColor: "bg-rose-500/20",
+    textColor: "text-rose-600 dark:text-rose-400",
+    iconColor: "text-rose-500",
+  },
+  educator: {
+    icon: GraduationCap,
+    label: "Educator",
+    bgColor: "bg-indigo-500/20",
+    textColor: "text-indigo-600 dark:text-indigo-400",
+    iconColor: "text-indigo-500",
   },
 };
 
