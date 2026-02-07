@@ -8,6 +8,8 @@ import { buttonVariants } from "@/components/ui/button";
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
+  const isDropdownMode = props.captionLayout === "dropdown" || props.captionLayout === "dropdown-buttons";
+  
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -16,10 +18,10 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium",
-        caption_dropdowns: "flex gap-1",
-        dropdown: "bg-background border border-input rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring",
-        dropdown_month: "mr-1",
+        caption_label: cn("text-sm font-medium", isDropdownMode && "sr-only"),
+        caption_dropdowns: "flex gap-2 items-center",
+        dropdown: "bg-background border border-input rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer",
+        dropdown_month: "",
         dropdown_year: "",
         nav: "space-x-1 flex items-center",
         nav_button: cn(
