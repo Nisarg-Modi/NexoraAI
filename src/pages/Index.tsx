@@ -25,6 +25,7 @@ import { OptimizedImage } from "@/components/ui/optimized-image";
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<'home' | 'contacts' | 'chat'>('contacts');
+  const [activeTab, setActiveTab] = useState("profile");
   const [selectedContact, setSelectedContact] = useState<{ userId: string; name: string; isGroup?: boolean; conversationId?: string } | null>(null);
   const { signOut, user } = useAuth();
   const { isAdmin } = useAdminCheck();
@@ -86,7 +87,7 @@ const Index = () => {
         
         {/* Main Content with Tabs */}
         <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-6">
-          <Tabs defaultValue="profile" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             {/* Mobile: Scrollable horizontal tabs */}
             <div className="overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0">
             <TabsList className={`inline-flex sm:grid w-max sm:w-full gap-1 sm:gap-0 mb-4 sm:mb-6 ${isAdmin ? 'sm:grid-cols-9' : 'sm:grid-cols-8'}`}>
@@ -148,7 +149,7 @@ const Index = () => {
             </TabsContent>
             
             <TabsContent value="profile">
-              <ProfileEditor />
+              <ProfileEditor onNavigateToContacts={() => setActiveTab("contacts")} />
             </TabsContent>
             
             <TabsContent value="wallet">
