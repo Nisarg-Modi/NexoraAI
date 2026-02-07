@@ -61,7 +61,11 @@ const validateUrl = (url: string, platform?: string): string | undefined => {
   }
 };
 
-export const ProfileEditor = () => {
+interface ProfileEditorProps {
+  onNavigateToContacts?: () => void;
+}
+
+export const ProfileEditor = ({ onNavigateToContacts }: ProfileEditorProps) => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [urlErrors, setUrlErrors] = useState<UrlErrors>({});
@@ -333,14 +337,17 @@ export const ProfileEditor = () => {
 
         {/* Quick Stats */}
         <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-4">
-          <div className="bg-card/50 rounded-lg p-3 text-center border border-border/50">
+          <div className="bg-card/50 rounded-lg p-3 text-center border border-border/50 cursor-pointer hover:bg-card/70 transition-colors" onClick={onNavigateToContacts}>
             <div className="flex justify-center mb-1">
               <Users className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
             </div>
             <p className="text-lg sm:text-xl font-bold">{stats.contactsCount}</p>
             <p className="text-xs text-muted-foreground">Contacts</p>
           </div>
-          <div className="bg-card/50 rounded-lg p-3 text-center border border-border/50">
+          <div 
+            className="bg-card/50 rounded-lg p-3 text-center border border-border/50 cursor-pointer hover:bg-card/70 transition-colors"
+            onClick={onNavigateToContacts}
+          >
             <div className="flex justify-center mb-1">
               <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
             </div>
