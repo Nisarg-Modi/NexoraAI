@@ -3,7 +3,6 @@ import { useEffect, useCallback } from "react";
 // Define prefetch functions for critical routes
 const routePrefetchers = {
   index: () => import("@/pages/Index"),
-  voiceProfiles: () => import("@/pages/VoiceProfiles"),
   install: () => import("@/pages/Install"),
 };
 
