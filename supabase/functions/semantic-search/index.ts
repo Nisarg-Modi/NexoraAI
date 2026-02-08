@@ -158,13 +158,13 @@ serve(async (req) => {
 
     const { data: results, error: searchError } = await serviceClient
       .rpc('semantic_search', {
-        query_embedding: queryEmbedding,
+        query_embedding: JSON.stringify(queryEmbedding),
         user_id: user.id,
-        conversation_filter: filters?.conversationId,
-        sender_filter: filters?.senderId,
-        start_date: filters?.startDate,
-        end_date: filters?.endDate,
-        message_type_filter: filters?.messageType,
+        conversation_filter: filters?.conversationId || null,
+        sender_filter: filters?.senderId || null,
+        start_date: filters?.startDate || null,
+        end_date: filters?.endDate || null,
+        message_type_filter: filters?.messageType || null,
         match_threshold: 0.5,
         match_count: limit
       });
