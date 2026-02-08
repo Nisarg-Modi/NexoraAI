@@ -12,7 +12,7 @@ const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const VoiceProfiles = lazy(() => import("./pages/VoiceProfiles"));
+
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 const SharedDocument = lazy(() => import("./pages/SharedDocument"));
 const Install = lazy(() => import("./pages/Install"));
@@ -67,14 +67,6 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <Index />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/voice-profiles"
-            element={
-              <ProtectedRoute>
-                <VoiceProfiles />
               </ProtectedRoute>
             }
           />

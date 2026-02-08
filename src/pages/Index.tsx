@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Sparkles, Globe, Zap, LogOut, MessageSquare, Search, Crown, FileText, User, Mic, Radio, ScanLine } from "lucide-react";
+import { Shield, Sparkles, Globe, Zap, LogOut, MessageSquare, Search, Crown, FileText, User, Radio, ScanLine } from "lucide-react";
 import ChatInterface from "@/components/ChatInterface";
 import ContactsList from "@/components/ContactsList";
 import SemanticSearch from "@/components/SemanticSearch";
@@ -15,7 +15,7 @@ import { useSemanticSearch } from "@/hooks/useSemanticSearch";
 import nexoraLogo from "@/assets/nexora-logo.png";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
 import DarkModeToggle from "@/components/DarkModeToggle";
-import { VoiceProfileManager } from '@/components/VoiceProfileManager';
+
 import { ScannerTranslator } from '@/components/ScannerTranslator';
 
 import { UpdatesView } from "@/components/UpdatesView";
@@ -90,7 +90,7 @@ const Index = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             {/* Mobile: Scrollable horizontal tabs */}
             <div className="overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0">
-            <TabsList className={`inline-flex sm:grid w-max sm:w-full gap-1 sm:gap-0 mb-4 sm:mb-6 ${isAdmin ? 'sm:grid-cols-9' : 'sm:grid-cols-8'}`}>
+            <TabsList className={`inline-flex sm:grid w-max sm:w-full gap-1 sm:gap-0 mb-4 sm:mb-6 ${isAdmin ? 'sm:grid-cols-8' : 'sm:grid-cols-7'}`}>
                 <TabsTrigger value="profile" className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap">
                   <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   <span className="hidden xs:inline sm:inline">Profile</span>
@@ -102,10 +102,6 @@ const Index = () => {
                 <TabsTrigger value="syncs" className="flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap">
                   <Radio className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   <span className="hidden xs:inline sm:inline">Syncs</span>
-                </TabsTrigger>
-                <TabsTrigger value="voices" className="flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap">
-                  <Mic className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline sm:inline">Voices</span>
                 </TabsTrigger>
                 <TabsTrigger value="wallet" className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap">
                   <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -144,9 +140,6 @@ const Index = () => {
             </TabsContent>
             
             
-            <TabsContent value="voices">
-              <VoiceProfileManager />
-            </TabsContent>
             
             <TabsContent value="profile">
               <ProfileEditor onNavigateToContacts={() => setActiveTab("contacts")} />
