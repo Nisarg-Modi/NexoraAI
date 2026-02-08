@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Users, Languages, Circle, Monitor, MonitorOff, PictureInPicture2, PictureInPictureIcon } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Users, Languages, Circle, Monitor, MonitorOff, PictureInPicture2, PictureInPictureIcon, UserPlus } from 'lucide-react';
 import { useCallRecording } from '@/hooks/useCallRecording';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -13,6 +13,9 @@ import { SpeakingBorder, VoiceWaveform } from './VoiceActivityIndicator';
 import { CallDurationTimer } from './CallDurationTimer';
 import { useVideoEffects, VideoEffect } from '@/hooks/useVideoEffects';
 import { BackgroundEffectSelector } from './BackgroundEffectSelector';
+import { CallReactions } from './CallReactions';
+import { AddParticipantDialog } from './AddParticipantDialog';
+
 interface CallInterfaceProps {
   callId: string;
   userId: string;
@@ -20,6 +23,7 @@ interface CallInterfaceProps {
   participantNames: Map<string, string>;
   isVideo: boolean;
   onEndCall: () => void;
+  onUpgradeToVideo?: () => void;
 }
 
 export const CallInterface = ({
@@ -27,8 +31,9 @@ export const CallInterface = ({
   userId,
   participantIds,
   participantNames,
-  isVideo,
+  isVideo: initialIsVideo,
   onEndCall,
+  onUpgradeToVideo,
 }: CallInterfaceProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -38,6 +43,10 @@ export const CallInterface = ({
   const [callStartTime] = useState<Date>(new Date());
   const [isPiPActive, setIsPiPActive] = useState(false);
   const [backgroundEffect, setBackgroundEffect] = useState<VideoEffect>('none');
+  const [showAddParticipant, setShowAddParticipant] = useState(false);
+  const [isVideo, setIsVideo] = useState(initialIsVideo);
+  const [currentParticipantIds, setCurrentParticipantIds] = useState(participantIds);
+  const [currentParticipantNames, setCurrentParticipantNames] = useState(participantNames);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
 
@@ -84,8 +93,77 @@ export const CallInterface = ({
     localStream,
     remoteStreams,
     callId,
-    participantNames,
+    participantNames: currentParticipantNames,
   });
+
+  // Listen for call end events from other participants
+  useEffect(() => {
+    const channel = supabase
+      .channel(`call-status:${callId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'calls',
+          filter: `id=eq.${callId}`,
+        },
+        (payload) => {
+          const call = payload.new;
+          if (call.status === 'ended') {
+            toast({
+              title: 'Call ended',
+              description: 'The other participant ended the call',
+            });
+            endCall();
+            onEndCall();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [callId, endCall, onEndCall, toast]);
+
+  // Handle new participant invitations
+  const handleParticipantAdded = (newUserId: string, name: string) => {
+    setCurrentParticipantIds(prev => [...prev, newUserId]);
+    setCurrentParticipantNames(prev => new Map(prev).set(newUserId, name));
+  };
+
+  // Upgrade voice call to video
+  const handleUpgradeToVideo = async () => {
+    try {
+      // Get video stream
+      const videoStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+      });
+
+      // Update call type in database
+      await supabase
+        .from('calls')
+        .update({ call_type: 'video' })
+        .eq('id', callId);
+
+      setIsVideo(true);
+      toast({
+        title: 'Video enabled',
+        description: 'Switched to video call',
+      });
+
+      // Trigger callback if provided
+      onUpgradeToVideo?.();
+    } catch (error) {
+      console.error('Error upgrading to video:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to enable video. Please check camera permissions.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const formatRecordingDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -322,12 +400,12 @@ export const CallInterface = ({
   }
 
   return (
-    <Card className="fixed inset-4 z-50 flex flex-col bg-background/95 backdrop-blur">
-      <div className="flex gap-4 h-full">
+    <Card className="fixed inset-2 sm:inset-4 z-50 flex flex-col bg-background/95 backdrop-blur">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 h-full overflow-hidden">
         {/* Main Video/Call Area */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-h-0">
           {/* Main Video Area */}
-          <div className="flex-1 p-4 flex items-center justify-center">
+          <div className="flex-1 p-2 sm:p-4 flex items-center justify-center min-h-0">
             {mainParticipant ? (
               <SpeakingBorder 
                 isSpeaking={isSpeaking(mainParticipant[0])} 
@@ -349,8 +427,8 @@ export const CallInterface = ({
                       className="hidden"
                     />
                     <div className="w-full h-full flex items-center justify-center">
-                      <div className="w-32 h-32 rounded-full bg-primary/20 flex items-center justify-center relative">
-                        <Users className="w-16 h-16 text-primary" />
+                      <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-primary/20 flex items-center justify-center relative">
+                        <Users className="w-12 h-12 sm:w-16 sm:h-16 text-primary" />
                         {isSpeaking(mainParticipant[0]) && (
                           <div className="absolute -bottom-2">
                             <VoiceWaveform isSpeaking={true} bars={5} />
@@ -360,8 +438,8 @@ export const CallInterface = ({
                     </div>
                   </>
                 )}
-                <div className="absolute bottom-4 left-4 bg-background/80 px-3 py-2 rounded text-base flex items-center gap-2">
-                  {participantNames.get(mainParticipant[0]) || 'Participant'}
+                <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 bg-background/80 px-2 py-1 sm:px-3 sm:py-2 rounded text-sm sm:text-base flex items-center gap-2">
+                  {currentParticipantNames.get(mainParticipant[0]) || 'Participant'}
                   {isSpeaking(mainParticipant[0]) && (
                     <VoiceWaveform isSpeaking={true} bars={3} className="h-3" />
                   )}
@@ -379,11 +457,11 @@ export const CallInterface = ({
 
           {/* Thumbnail Strip */}
           <div className="px-4 pb-4">
-            <div className="flex gap-2 overflow-x-auto pb-2">{/* ... keep existing code */}
+            <div className="flex gap-2 overflow-x-auto pb-2">
           {/* Local Video Thumbnail */}
           <SpeakingBorder 
             isSpeaking={isSpeaking(userId)} 
-            className="relative flex-shrink-0 w-32 h-24 rounded-lg overflow-hidden bg-muted border-2 border-primary"
+            className="relative flex-shrink-0 w-24 h-20 sm:w-32 sm:h-24 rounded-lg overflow-hidden bg-muted border-2 border-primary"
           >
             {isVideo ? (
               <video
@@ -395,8 +473,8 @@ export const CallInterface = ({
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center relative">
-                  <Users className="w-6 h-6 text-primary" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/20 flex items-center justify-center relative">
+                  <Users className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                   {isSpeaking(userId) && (
                     <div className="absolute -bottom-1">
                       <VoiceWaveform isSpeaking={true} bars={3} className="h-2" />
@@ -405,7 +483,7 @@ export const CallInterface = ({
                 </div>
               </div>
             )}
-            <div className="absolute bottom-1 left-1 bg-background/80 px-2 py-0.5 rounded text-xs flex items-center gap-1">
+            <div className="absolute bottom-1 left-1 bg-background/80 px-1.5 py-0.5 rounded text-xs flex items-center gap-1">
               You
               {isSpeaking(userId) && (
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
@@ -418,7 +496,7 @@ export const CallInterface = ({
             <SpeakingBorder 
               key={participantId} 
               isSpeaking={isSpeaking(participantId)}
-              className="relative flex-shrink-0 w-32 h-24 rounded-lg overflow-hidden bg-muted"
+              className="relative flex-shrink-0 w-24 h-20 sm:w-32 sm:h-24 rounded-lg overflow-hidden bg-muted"
             >
               {isVideo ? (
                 <video
@@ -459,7 +537,7 @@ export const CallInterface = ({
                 </div>
               )}
               <div className="absolute bottom-1 left-1 bg-background/80 px-2 py-0.5 rounded text-xs flex items-center gap-1">
-                {participantNames.get(participantId) || 'Unknown'}
+                {currentParticipantNames.get(participantId) || 'Unknown'}
                 {isSpeaking(participantId) && (
                   <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                 )}
@@ -468,56 +546,73 @@ export const CallInterface = ({
           ))}
 
           {/* Empty slots for participants not yet connected */}
-          {participantIds.length - remoteStreams.size - 1 > 0 &&
-            Array.from({ length: participantIds.length - remoteStreams.size - 1 }).map((_, i) => (
-              <div key={`empty-${i}`} className="flex-shrink-0 w-32 h-24 rounded-lg bg-muted flex items-center justify-center">
-                <Phone className="w-6 h-6 animate-pulse text-muted-foreground" />
+          {currentParticipantIds.length - remoteStreams.size - 1 > 0 &&
+            Array.from({ length: currentParticipantIds.length - remoteStreams.size - 1 }).map((_, i) => (
+              <div key={`empty-${i}`} className="flex-shrink-0 w-24 h-20 sm:w-32 sm:h-24 rounded-lg bg-muted flex items-center justify-center">
+                <Phone className="w-5 h-5 sm:w-6 sm:h-6 animate-pulse text-muted-foreground" />
               </div>
             ))}
             </div>
           </div>
 
           {/* Controls */}
-          <div className="p-6 bg-background border-t">
-            <div className="flex items-center justify-center gap-4">
+          <div className="p-4 sm:p-6 bg-background border-t">
+            {/* Mobile-responsive control grid */}
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
               <Button
                 size="lg"
                 variant={isMuted ? 'destructive' : 'secondary'}
                 onClick={handleToggleMute}
-                className="rounded-full w-14 h-14"
+                className="rounded-full w-12 h-12 sm:w-14 sm:h-14"
+                title={isMuted ? 'Unmute' : 'Mute'}
               >
-                {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                {isMuted ? <MicOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Mic className="w-5 h-5 sm:w-6 sm:h-6" />}
+              </Button>
+
+              {/* Video toggle - show for both video calls and as upgrade option for voice calls */}
+              {isVideo ? (
+                <Button
+                  size="lg"
+                  variant={isVideoOff ? 'destructive' : 'secondary'}
+                  onClick={handleToggleVideo}
+                  className="rounded-full w-12 h-12 sm:w-14 sm:h-14"
+                  title={isVideoOff ? 'Turn on camera' : 'Turn off camera'}
+                >
+                  {isVideoOff ? <VideoOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Video className="w-5 h-5 sm:w-6 sm:h-6" />}
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  onClick={handleUpgradeToVideo}
+                  className="rounded-full w-12 h-12 sm:w-14 sm:h-14"
+                  title="Switch to video call"
+                >
+                  <Video className="w-5 h-5 sm:w-6 sm:h-6" />
+                </Button>
+              )}
+
+              {/* Screen sharing - available for both audio and video calls */}
+              <Button
+                size="lg"
+                variant={isScreenSharing ? 'default' : 'secondary'}
+                onClick={handleToggleScreenShare}
+                className="rounded-full w-12 h-12 sm:w-14 sm:h-14"
+                title={isScreenSharing ? 'Stop Screen Share' : 'Share Screen'}
+              >
+                {isScreenSharing ? <MonitorOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Monitor className="w-5 h-5 sm:w-6 sm:h-6" />}
               </Button>
 
               {isVideo && (
                 <>
                   <Button
                     size="lg"
-                    variant={isVideoOff ? 'destructive' : 'secondary'}
-                    onClick={handleToggleVideo}
-                    className="rounded-full w-14 h-14"
-                  >
-                    {isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
-                  </Button>
-
-                  <Button
-                    size="lg"
-                    variant={isScreenSharing ? 'default' : 'secondary'}
-                    onClick={handleToggleScreenShare}
-                    className="rounded-full w-14 h-14"
-                    title={isScreenSharing ? 'Stop Screen Share' : 'Share Screen'}
-                  >
-                    {isScreenSharing ? <MonitorOff className="w-6 h-6" /> : <Monitor className="w-6 h-6" />}
-                  </Button>
-
-                  <Button
-                    size="lg"
                     variant={isPiPActive ? 'default' : 'secondary'}
                     onClick={handleTogglePiP}
-                    className="rounded-full w-14 h-14"
+                    className="rounded-full w-12 h-12 sm:w-14 sm:h-14"
                     title={isPiPActive ? 'Exit Picture-in-Picture' : 'Picture-in-Picture'}
                   >
-                    {isPiPActive ? <PictureInPictureIcon className="w-6 h-6" /> : <PictureInPicture2 className="w-6 h-6" />}
+                    {isPiPActive ? <PictureInPictureIcon className="w-5 h-5 sm:w-6 sm:h-6" /> : <PictureInPicture2 className="w-5 h-5 sm:w-6 sm:h-6" />}
                   </Button>
 
                   <BackgroundEffectSelector
@@ -529,24 +624,38 @@ export const CallInterface = ({
                 </>
               )}
 
+              {/* Reactions */}
+              <CallReactions callId={callId} userId={userId} />
+
+              {/* Add Participant */}
+              <Button
+                size="lg"
+                variant="secondary"
+                onClick={() => setShowAddParticipant(true)}
+                className="rounded-full w-12 h-12 sm:w-14 sm:h-14"
+                title="Add Participant"
+              >
+                <UserPlus className="w-5 h-5 sm:w-6 sm:h-6" />
+              </Button>
+
               <Button
                 size="lg"
                 variant={showTranscription ? 'default' : 'secondary'}
                 onClick={() => setShowTranscription(!showTranscription)}
-                className="rounded-full w-14 h-14"
+                className="rounded-full w-12 h-12 sm:w-14 sm:h-14"
                 title="Toggle Live Transcription"
               >
-                <Languages className="w-6 h-6" />
+                <Languages className="w-5 h-5 sm:w-6 sm:h-6" />
               </Button>
 
               <Button
                 size="lg"
                 variant={isRecording ? 'destructive' : 'secondary'}
                 onClick={toggleRecording}
-                className="rounded-full w-14 h-14 relative"
+                className="rounded-full w-12 h-12 sm:w-14 sm:h-14 relative"
                 title={isRecording ? 'Stop Recording' : 'Start Recording'}
               >
-                <Circle className={`w-6 h-6 ${isRecording ? 'fill-current animate-pulse' : ''}`} />
+                <Circle className={`w-5 h-5 sm:w-6 sm:h-6 ${isRecording ? 'fill-current animate-pulse' : ''}`} />
                 {isRecording && (
                   <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full">
                     {formatRecordingDuration(recordingDuration)}
@@ -558,9 +667,10 @@ export const CallInterface = ({
                 size="lg"
                 variant="destructive"
                 onClick={handleEndCall}
-                className="rounded-full w-14 h-14"
+                className="rounded-full w-12 h-12 sm:w-14 sm:h-14"
+                title="End Call"
               >
-                <PhoneOff className="w-6 h-6" />
+                <PhoneOff className="w-5 h-5 sm:w-6 sm:h-6" />
               </Button>
             </div>
 
@@ -568,7 +678,7 @@ export const CallInterface = ({
               <CallDurationTimer startTime={callStartTime} />
               <span className="text-muted-foreground">•</span>
               <p className="text-sm text-muted-foreground">
-                {participantIds.length} participant{participantIds.length > 1 ? 's' : ''}
+                {currentParticipantIds.length} participant{currentParticipantIds.length > 1 ? 's' : ''}
               </p>
             </div>
           </div>
@@ -576,7 +686,7 @@ export const CallInterface = ({
 
         {/* Live Transcription Sidebar */}
         {showTranscription && user && (
-          <div className="w-96 border-l p-4 overflow-y-auto space-y-4">
+          <div className="hidden sm:block w-96 border-l p-4 overflow-y-auto space-y-4">
             <LiveTranscription
               userId={userId}
               userName={user.email || 'You'}
@@ -586,6 +696,15 @@ export const CallInterface = ({
           </div>
         )}
       </div>
+
+      {/* Add Participant Dialog */}
+      <AddParticipantDialog
+        open={showAddParticipant}
+        onClose={() => setShowAddParticipant(false)}
+        callId={callId}
+        currentParticipantIds={currentParticipantIds}
+        onParticipantAdded={handleParticipantAdded}
+      />
     </Card>
   );
 };

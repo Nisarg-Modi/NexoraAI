@@ -283,4 +283,26 @@ All colors MUST be HSL.
   .aurora-bg {
     animation: aurora 8s ease-in-out infinite;
   }
+
+  /* Bounce in animation for call reactions */
+  @keyframes bounce-in {
+    0% { 
+      opacity: 0; 
+      transform: scale(0.3) translateY(20px); 
+    }
+    50% { 
+      opacity: 1;
+      transform: scale(1.05) translateY(-5px); 
+    }
+    70% { 
+      transform: scale(0.9) translateY(0); 
+    }
+    100% { 
+      transform: scale(1) translateY(0); 
+    }
+  }
+  
+  .animate-bounce-in {
+    animation: bounce-in 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
 }
