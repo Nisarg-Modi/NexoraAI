@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Sparkles, Globe, Zap, LogOut, MessageSquare, Search, Crown, FileText, User, Radio, ScanLine } from "lucide-react";
+import { Shield, Sparkles, Globe, Zap, LogOut, MessageSquare, Search, Crown, User, Radio, ScanLine } from "lucide-react";
 import ChatInterface from "@/components/ChatInterface";
 import ContactsList from "@/components/ContactsList";
 import SemanticSearch from "@/components/SemanticSearch";
 import SubscriptionManagement from "@/components/SubscriptionManagement";
-import { DocumentWallet } from "@/components/DocumentWallet";
+
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { useAuth } from "@/hooks/useAuth";
@@ -90,7 +90,7 @@ const Index = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             {/* Mobile: Scrollable horizontal tabs */}
             <div className="overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0">
-            <TabsList className={`inline-flex sm:grid w-max sm:w-full gap-1 sm:gap-0 mb-4 sm:mb-6 ${isAdmin ? 'sm:grid-cols-8' : 'sm:grid-cols-7'}`}>
+            <TabsList className={`inline-flex sm:grid w-max sm:w-full gap-1 sm:gap-0 mb-4 sm:mb-6 ${isAdmin ? 'sm:grid-cols-7' : 'sm:grid-cols-6'}`}>
                 <TabsTrigger value="profile" className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap">
                   <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   <span className="hidden xs:inline sm:inline">Profile</span>
@@ -102,10 +102,6 @@ const Index = () => {
                 <TabsTrigger value="syncs" className="flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap">
                   <Radio className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   <span className="hidden xs:inline sm:inline">Syncs</span>
-                </TabsTrigger>
-                <TabsTrigger value="wallet" className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap">
-                  <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline sm:inline">Wallet</span>
                 </TabsTrigger>
                 <TabsTrigger value="scanner" className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap">
                   <ScanLine className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -145,9 +141,6 @@ const Index = () => {
               <ProfileEditor onNavigateToContacts={() => setActiveTab("contacts")} />
             </TabsContent>
             
-            <TabsContent value="wallet">
-              <DocumentWallet />
-            </TabsContent>
             
             <TabsContent value="scanner">
               <ScannerTranslator />
