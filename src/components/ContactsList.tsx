@@ -322,39 +322,69 @@ const ContactsList = ({ onStartChat, onStartGroupChat }: ContactsListProps) => {
     if (!username.trim()) {
       toast({
         title: "Error",
-        description: "Please enter a username",
+        description: "Please enter a username or phone number",
         variant: "destructive",
       });
       return;
     }
 
-    try {
-      usernameSchema.parse(username);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast({
-          title: "Invalid username",
-          description: error.errors[0].message,
-          variant: "destructive",
-        });
-      }
-      return;
-    }
+    const input = username.trim();
+    const isPhoneNumber = /^\+?[0-9]{7,15}$/.test(input.replace(/[\s\-()]/g, ''));
 
     setLoading(true);
 
     try {
-      // Find user by username using secure function
-      const { data: profileData, error: profileError } = await supabase
-        .rpc('find_user_by_username', { input_username: username.trim() });
+      let profileData;
+      let profileError;
 
-      if (profileError || !profileData || profileData.length === 0) {
-        toast({
-          title: "User not found",
-          description: "No Nexora user found with this username",
-          variant: "destructive",
-        });
-        return;
+      if (isPhoneNumber) {
+        // Normalize phone number (remove spaces, dashes, etc.)
+        const normalizedPhone = input.replace(/[\s\-()]/g, '');
+        
+        // Find user by phone number
+        const result = await supabase.rpc('find_user_by_phone', { input_phone: normalizedPhone });
+        profileData = result.data;
+        profileError = result.error;
+
+        if (profileError || !profileData || profileData.length === 0) {
+          toast({
+            title: "User not found",
+            description: "No Nexora user found with this phone number. They may need to add their phone to their profile.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+      } else {
+        // Validate username format
+        try {
+          usernameSchema.parse(input);
+        } catch (error) {
+          if (error instanceof z.ZodError) {
+            toast({
+              title: "Invalid username",
+              description: error.errors[0].message,
+              variant: "destructive",
+            });
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Find user by username
+        const result = await supabase.rpc('find_user_by_username', { input_username: input });
+        profileData = result.data;
+        profileError = result.error;
+
+        if (profileError || !profileData || profileData.length === 0) {
+          toast({
+            title: "User not found",
+            description: "No Nexora user found with this username",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
       }
 
       const userData = profileData[0];
@@ -369,6 +399,7 @@ const ContactsList = ({ onStartChat, onStartGroupChat }: ContactsListProps) => {
           description: "You cannot add yourself as a contact",
           variant: "destructive",
         });
+        setLoading(false);
         return;
       }
 
@@ -840,22 +871,22 @@ const ContactsList = ({ onStartChat, onStartGroupChat }: ContactsListProps) => {
             <DialogHeader>
               <DialogTitle>Add New Contact</DialogTitle>
               <DialogDescription>
-                Enter a username to find and add a Nexora user to your contacts
+                Enter a username or phone number to find and add a Nexora user
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="username">Username or Phone Number</Label>
                 <Input
                   id="username"
                   type="text"
-                  placeholder="username"
+                  placeholder="username or +1234567890"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  maxLength={30}
+                  maxLength={50}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Enter the Nexora user's username
+                  Enter a Nexora username or phone number (with country code)
                 </p>
               </div>
               <div className="space-y-2">
