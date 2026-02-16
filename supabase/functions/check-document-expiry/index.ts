@@ -14,6 +14,41 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // Authenticate the caller - require admin role
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authorization required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify admin role
+    const { data: isAdmin } = await supabaseClient.rpc("has_role", {
+      _user_id: user.id,
+      _role: "admin",
+    });
+
+    if (!isAdmin) {
+      return new Response(
+        JSON.stringify({ error: "Admin access required" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -37,9 +72,7 @@ serve(async (req) => {
 
     let totalNotificationsSent = 0;
 
-    // Check each target date
     for (const { days, dateStr } of targetDates) {
-      // Find documents expiring on this date
       const { data: expiringDocs, error: docsError } = await supabase
         .from("user_documents")
         .select("id, user_id, file_name, extracted_name, document_category, extracted_expiry_date")
@@ -57,7 +90,6 @@ serve(async (req) => {
 
       console.log(`Found ${expiringDocs.length} documents expiring in ${days} days`);
 
-      // Group documents by user
       const docsByUser = expiringDocs.reduce((acc, doc) => {
         if (!acc[doc.user_id]) {
           acc[doc.user_id] = [];
@@ -66,9 +98,7 @@ serve(async (req) => {
         return acc;
       }, {} as Record<string, typeof expiringDocs>);
 
-      // Send notifications to each user
       for (const [userId, userDocs] of Object.entries(docsByUser)) {
-        // Check if user has push subscriptions
         const { data: subscriptions, error: subError } = await supabase
           .from("push_subscriptions")
           .select("id")
@@ -76,11 +106,9 @@ serve(async (req) => {
           .limit(1);
 
         if (subError || !subscriptions || subscriptions.length === 0) {
-          console.log(`No push subscriptions for user ${userId}, skipping notification`);
           continue;
         }
 
-        // Prepare notification content
         const docCount = userDocs.length;
         const docNames = userDocs
           .map(d => d.extracted_name || d.file_name)
@@ -101,7 +129,6 @@ serve(async (req) => {
           body = `${docNames}${docCount > 3 ? ` and ${docCount - 3} more` : ''} expire in ${days} days.`;
         }
 
-        // Send push notification
         try {
           const { error: pushError } = await supabase.functions.invoke("send-push-notification", {
             body: {
@@ -119,7 +146,6 @@ serve(async (req) => {
           if (pushError) {
             console.error(`Error sending push notification to user ${userId}:`, pushError);
           } else {
-            console.log(`Sent expiry notification to user ${userId} for ${docCount} document(s)`);
             totalNotificationsSent++;
           }
         } catch (error) {
@@ -128,21 +154,17 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Document expiry check complete. Total notifications sent: ${totalNotificationsSent}`);
-
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: `Checked document expiry. Sent ${totalNotificationsSent} notifications.`,
-        notificationsSent: totalNotificationsSent
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Error in check-document-expiry:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

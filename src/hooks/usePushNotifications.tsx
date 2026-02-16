@@ -65,7 +65,7 @@ export const usePushNotifications = () => {
       console.log('Service Worker registered:', registration);
 
       // Get push subscription
-      const subscription = await registration.pushManager.getSubscription();
+      const subscription = await (registration as any).pushManager?.getSubscription();
       if (subscription) {
         setState((prev) => ({ ...prev, subscription }));
         await saveSubscriptionToServer(subscription);
@@ -91,7 +91,7 @@ export const usePushNotifications = () => {
         return null;
       }
 
-      const subscription = await registration.pushManager.subscribe({
+      const subscription = await (registration as any).pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey) as BufferSource,
       });
