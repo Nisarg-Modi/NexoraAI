@@ -1550,6 +1550,7 @@ export type Database = {
         Returns: boolean
       }
       cleanup_ai_chat_rate_limits: { Args: never; Returns: undefined }
+      cleanup_expired_moments: { Args: never; Returns: undefined }
       create_group_conversation: {
         Args: { p_group_name: string; p_member_ids: string[] }
         Returns: string
