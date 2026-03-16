@@ -6,16 +6,56 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// In-memory rate limiting by IP
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 10; // max 10 attempts per minute per IP
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+
+  entry.count++;
+  if (entry.count > RATE_LIMIT_MAX_REQUESTS) {
+    return true;
+  }
+  return false;
+}
+
+// Periodic cleanup of stale entries
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of rateLimitMap) {
+    if (now > val.resetAt) rateLimitMap.delete(key);
+  }
+}, 5 * 60 * 1000);
+
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Support both GET with query param and POST with body
+    // Rate limit by client IP
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || req.headers.get('cf-connecting-ip')
+      || 'unknown';
+
+    if (isRateLimited(clientIp)) {
+      console.warn('Rate limited IP:', clientIp);
+      return new Response(
+        JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' } }
+      );
+    }
+
     let token: string | null = null;
-    
+
     if (req.method === 'GET') {
       const url = new URL(req.url);
       token = url.searchParams.get('token');
@@ -31,13 +71,20 @@ serve(async (req) => {
       );
     }
 
+    // Basic token format validation to reject obviously invalid tokens early
+    if (token.length < 16 || token.length > 128 || !/^[a-zA-Z0-9_-]+$/.test(token)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid share token format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log('Accessing shared document with token:', token.substring(0, 8) + '...');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find the share link
     const { data: shareLink, error: shareError } = await supabase
       .from('document_share_links')
       .select('*, user_documents(*)')
@@ -47,27 +94,24 @@ serve(async (req) => {
 
     if (shareError || !shareLink) {
       console.error('Share link not found:', shareError);
+      // Use generic message to avoid token enumeration
       return new Response(
         JSON.stringify({ error: 'Invalid or expired share link' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Check if link has expired
     if (new Date(shareLink.expires_at) < new Date()) {
-      console.log('Share link expired');
       return new Response(
-        JSON.stringify({ error: 'This share link has expired' }),
-        { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Invalid or expired share link' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Check max access count
     if (shareLink.max_access_count !== null && shareLink.accessed_count >= shareLink.max_access_count) {
-      console.log('Max access count reached');
       return new Response(
-        JSON.stringify({ error: 'This share link has reached its maximum access limit' }),
-        { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Invalid or expired share link' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -79,16 +123,14 @@ serve(async (req) => {
       );
     }
 
-    // Increment access count
     await supabase
       .from('document_share_links')
       .update({ accessed_count: shareLink.accessed_count + 1 })
       .eq('id', shareLink.id);
 
-    // Generate a signed URL for the document
     const { data: signedUrl, error: urlError } = await supabase.storage
       .from('documents')
-      .createSignedUrl(document.file_path, 3600); // 1 hour expiry
+      .createSignedUrl(document.file_path, 3600);
 
     if (urlError) {
       console.error('Error generating signed URL:', urlError);
