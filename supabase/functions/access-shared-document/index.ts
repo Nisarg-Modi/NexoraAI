@@ -87,7 +87,7 @@ serve(async (req) => {
 
     const logFailedAttempt = async (reason: string) => {
       try {
-        await supabase.from('security_audit_log').insert({
+        const { error: auditError } = await supabase.from('security_audit_log').insert({
           event_type: 'shared_document_failed_access',
           metadata: {
             reason,
@@ -96,6 +96,9 @@ serve(async (req) => {
             timestamp: new Date().toISOString(),
           },
         });
+        if (auditError) {
+          console.error('Audit log insert error:', auditError);
+        }
       } catch (e) {
         console.error('Failed to log audit event:', e);
       }
