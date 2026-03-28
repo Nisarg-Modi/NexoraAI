@@ -110,7 +110,7 @@ serve(async (req) => {
 
     if (shareError || !shareLink) {
       console.error('Share link not found:', shareError);
-      // Use generic message to avoid token enumeration
+      await logFailedAttempt('token_not_found');
       return new Response(
         JSON.stringify({ error: 'Invalid or expired share link' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
