@@ -85,6 +85,25 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    const logFailedAttempt = async (reason: string) => {
+      try {
+        const { error: auditError } = await supabase.from('security_audit_log').insert({
+          event_type: 'shared_document_failed_access',
+          metadata: {
+            reason,
+            token_prefix: token.substring(0, 8),
+            client_ip: clientIp,
+            timestamp: new Date().toISOString(),
+          },
+        });
+        if (auditError) {
+          console.error('Audit log insert error:', auditError);
+        }
+      } catch (e) {
+        console.error('Failed to log audit event:', e);
+      }
+    };
+
     const { data: shareLink, error: shareError } = await supabase
       .from('document_share_links')
       .select('*, user_documents(*)')
@@ -94,7 +113,7 @@ serve(async (req) => {
 
     if (shareError || !shareLink) {
       console.error('Share link not found:', shareError);
-      // Use generic message to avoid token enumeration
+      await logFailedAttempt('token_not_found');
       return new Response(
         JSON.stringify({ error: 'Invalid or expired share link' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -102,6 +121,7 @@ serve(async (req) => {
     }
 
     if (new Date(shareLink.expires_at) < new Date()) {
+      await logFailedAttempt('token_expired');
       return new Response(
         JSON.stringify({ error: 'Invalid or expired share link' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -109,6 +129,7 @@ serve(async (req) => {
     }
 
     if (shareLink.max_access_count !== null && shareLink.accessed_count >= shareLink.max_access_count) {
+      await logFailedAttempt('max_access_exceeded');
       return new Response(
         JSON.stringify({ error: 'Invalid or expired share link' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
