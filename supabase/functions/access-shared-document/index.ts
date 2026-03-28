@@ -85,6 +85,22 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    const logFailedAttempt = async (reason: string) => {
+      try {
+        await supabase.from('security_audit_log').insert({
+          event_type: 'shared_document_failed_access',
+          metadata: {
+            reason,
+            token_prefix: token.substring(0, 8),
+            client_ip: clientIp,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      } catch (e) {
+        console.error('Failed to log audit event:', e);
+      }
+    };
+
     const { data: shareLink, error: shareError } = await supabase
       .from('document_share_links')
       .select('*, user_documents(*)')
