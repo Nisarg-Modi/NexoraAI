@@ -118,6 +118,7 @@ serve(async (req) => {
     }
 
     if (new Date(shareLink.expires_at) < new Date()) {
+      await logFailedAttempt('token_expired');
       return new Response(
         JSON.stringify({ error: 'Invalid or expired share link' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
