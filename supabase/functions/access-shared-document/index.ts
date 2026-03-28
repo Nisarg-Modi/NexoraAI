@@ -126,6 +126,7 @@ serve(async (req) => {
     }
 
     if (shareLink.max_access_count !== null && shareLink.accessed_count >= shareLink.max_access_count) {
+      await logFailedAttempt('max_access_exceeded');
       return new Response(
         JSON.stringify({ error: 'Invalid or expired share link' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
