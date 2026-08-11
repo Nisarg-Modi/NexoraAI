@@ -17,6 +17,8 @@ const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 const SharedDocument = lazy(() => import("./pages/SharedDocument"));
 const Install = lazy(() => import("./pages/Install"));
 const Recordings = lazy(() => import("./pages/Recordings"));
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
+
 
 const queryClient = new QueryClient();
 
@@ -61,6 +63,8 @@ const AppContent = () => {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
+
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route
             path="/"
