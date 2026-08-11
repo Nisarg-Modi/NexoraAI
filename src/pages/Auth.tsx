@@ -189,7 +189,7 @@ const Auth = () => {
               title: "Welcome back!",
               description: "Successfully logged in.",
             });
-            navigate("/");
+            navigate(nextPath);
           }
         } catch (error) {
           toast({
@@ -223,7 +223,7 @@ const Auth = () => {
           return;
         }
         
-        const redirectUrl = `${window.location.origin}/`;
+        const redirectUrl = `${window.location.origin}${nextPath}`;
         
         const { data: authData, error } = await supabase.auth.signUp({
           email: email.trim(),
@@ -279,7 +279,7 @@ const Auth = () => {
             title: "Account created!",
             description: "Welcome to Nexora. You can now start chatting.",
           });
-          navigate("/");
+          navigate(nextPath);
         }
       }
     } catch (error) {
