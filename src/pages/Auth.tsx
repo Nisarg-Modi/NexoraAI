@@ -46,14 +46,19 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Preserve a same-origin relative redirect target (used by the OAuth consent flow)
+  const rawNext = new URLSearchParams(window.location.search).get("next");
+  const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+
   useEffect(() => {
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate("/");
+        navigate(nextPath);
       }
     });
-  }, [navigate]);
+  }, [navigate, nextPath]);
+
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,7 +189,7 @@ const Auth = () => {
               title: "Welcome back!",
               description: "Successfully logged in.",
             });
-            navigate("/");
+            navigate(nextPath);
           }
         } catch (error) {
           toast({
@@ -218,7 +223,7 @@ const Auth = () => {
           return;
         }
         
-        const redirectUrl = `${window.location.origin}/`;
+        const redirectUrl = `${window.location.origin}${nextPath}`;
         
         const { data: authData, error } = await supabase.auth.signUp({
           email: email.trim(),
@@ -274,7 +279,7 @@ const Auth = () => {
             title: "Account created!",
             description: "Welcome to Nexora. You can now start chatting.",
           });
-          navigate("/");
+          navigate(nextPath);
         }
       }
     } catch (error) {
