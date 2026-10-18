@@ -324,8 +324,8 @@ const LiveTranscription = ({
         }
       } else if (selectedLanguage !== "en") {
         // Manual language selection: translate to selected language
-        const { data, error } = await supabase.functions.invoke("translate-message", {
-          body: { text, targetLanguage: selectedLanguage },
+        const { data: translatedData, error: translateError } = await supabase.functions.invoke("translate-message", {
+          body: { text, targetLanguage: userPreferredLang, },
         });
 
         if (!error && data?.translatedText) {
