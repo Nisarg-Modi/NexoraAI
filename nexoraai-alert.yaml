@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: nexoraai-alerts
+  namespace: nisarg-modi-dev
+spec:
+  groups:
+    - name: nexoraai.availability
+      rules:
+        - alert: NexoraAIWebUnavailable
+          expr: kube_deployment_status_replicas_available{namespace="nisarg-modi-dev",deployment="nexoraai-web"} < 1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "NexoraAI web deployment is unavailable"
+            description: "NexoraAI has had no available replicas for at least 2 minutes."
