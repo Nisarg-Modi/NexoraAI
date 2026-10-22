@@ -4,7 +4,7 @@
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/554115e2-3c57-412f-9ebc-cca0052def51
+**URL**: https://nexoraai-web-nisarg-modi-dev.apps.rm3.7wse.p1.openshiftapps.com/?utm_source=chatgpt.com
 
 ## How can I edit this code?
 
