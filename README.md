@@ -1,3 +1,5 @@
+[![Architecture diagram of nisarg-modi/nexoraai](https://gitdiagram.com/nisarg-modi/nexoraai/diagram.png)](https://gitdiagram.com/nisarg-modi/nexoraai?utm_source=readme&utm_medium=picture)
+
 # Welcome to your Lovable project
 
 ## Project info
