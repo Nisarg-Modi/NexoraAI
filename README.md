@@ -1,10 +1,10 @@
 [![Architecture diagram of nisarg-modi/nexoraai](https://gitdiagram.com/nisarg-modi/nexoraai/diagram.png)](https://gitdiagram.com/nisarg-modi/nexoraai?utm_source=readme&utm_medium=picture)
 
-# Welcome to your Lovable project
+# Welcome to your Lovable project deployed and hosted on Openshift
 
 ## Project info
 
-**URL**: https://nexoraai-web-nisarg-modi-dev.apps.rm3.7wse.p1.openshiftapps.com/?utm_source=chatgpt.com
+**URL**: https://nexoraai-web-nisarg-modi-dev.apps.rm3.7wse.p1.openshiftapps.com/
 
 ## How can I edit this code?
 
