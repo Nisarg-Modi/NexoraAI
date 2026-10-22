@@ -2,6 +2,9 @@
 
 # Welcome to your Lovable project deployed and hosted on Openshift
 
+How nisarg-modi/nexoraai works
+Nexora is a real-time messaging and communication app with AI assistance, semantic search, translation, calls, document tools, and social features. Users authenticate, enter the main workspace, then choose contacts or conversations and use messaging, search, scanning, or other feature views. The sampled files show the app routing and authentication flow, workspace composition, chat feature integrations, and Supabase access. Other substantial capabilities are represented from the file tree, but their runtime wiring is not inferred where source excerpts do not show it.
+
 ## Project info
 
 **URL**: https://nexoraai-web-nisarg-modi-dev.apps.rm3.7wse.p1.openshiftapps.com/
